@@ -40,7 +40,18 @@ function readCheck(): Check {
   }
 }
 
+/** Newest released version: the highest vX.Y.Z tag (tags are what `wu update` installs). */
 async function remoteVersion(timeoutMs: number): Promise<string | null> {
+  const headers = { "User-Agent": UA, Accept: "application/vnd.github+json" };
+  try {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/tags?per_page=50`, { headers, signal: AbortSignal.timeout(timeoutMs) });
+    if (res.ok) {
+      const tags = ((await res.json()) as { name?: string }[]).map((t) => String(t.name ?? ""));
+      const versions = tags.filter((n) => /^v\d+(\.\d+)*$/.test(n)).map((n) => n.slice(1));
+      if (versions.length) return versions.reduce((a, b) => (newer(b, a) ? b : a));
+    }
+  } catch {}
+  // fallback (e.g. API rate limit): package.json on main, which the raw CDN caches for a few minutes
   const res = await fetch(`https://raw.githubusercontent.com/${REPO}/main/package.json`, {
     headers: { "User-Agent": UA, "Cache-Control": "no-cache" },
     signal: AbortSignal.timeout(timeoutMs),
