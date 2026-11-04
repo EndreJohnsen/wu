@@ -1,10 +1,18 @@
 {
   "name": "@endrejohnsen/wu",
   "version": "1.0.0",
-  "description": "Keeps your WoW Forever addons fresh: update, search, import and install from CurseForge, with a spinning engram.",
+  "description": "Terminal addon manager for WoW Forever: update, search, import and install from CurseForge.",
   "private": true,
   "license": "UNLICENSED",
   "author": "EndreJohnsen",
+  "homepage": "https://github.com/EndreJohnsen/wu#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EndreJohnsen/wu.git"
+  },
+  "bugs": {
+    "url": "https://github.com/EndreJohnsen/wu/issues"
+  },
   "bin": {
     "wu": "bin/wu"
   },

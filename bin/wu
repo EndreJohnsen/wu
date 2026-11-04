@@ -75,20 +75,6 @@ STATE_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state"))
 STATE_FILE = STATE_DIR / "state.json"
 UA = f"wu/{VERSION} (personal WoW addon updater)"
 
-# Used only if state.json is missing: CurseForge project id -> title.
-DEFAULT_ADDONS = {
-    "1098587": "DialogKey - Numy Edition",
-    "989270": "Dialogue UI",
-    "1703732": "Forever Quest Tint",
-    "914482": "Baganator",
-    "6124": "Auctionator",
-    "1707971": "DungeonJournal",
-    "334918": "GatherLite",
-    "1273281": "Chattynator",
-    "1076354": "Enhance QoL",
-    "61284": "Details! Damage Meter",
-    "1700375": "Spoken",
-}
 
 # ── look & feel ──────────────────────────────────────────────────────────────
 
@@ -729,12 +715,7 @@ def finale(text, styled=None):
 def load_state():
     if STATE_FILE.exists():
         return json.loads(STATE_FILE.read_text())
-    return {
-        "addons": {
-            pid: {"title": title, "file_id": None, "version": None, "folders": []}
-            for pid, title in DEFAULT_ADDONS.items()
-        }
-    }
+    return {"addons": {}}
 
 
 def save_state(state):
@@ -936,6 +917,15 @@ def cmd_update(args):
     t0 = time.time()
 
     found = ADDONS_DIR.parent.exists()
+    if not addons:
+        banner(0)
+        print(f"{bullet('ok')} {BOLD}Welcome{RESET}")
+        print(result("wu isn't tracking any addons yet. Start with one of these:"))
+        for cmd, desc in (("wu import", "adopt the addons already in your AddOns folder"),
+                          ("wu search bags", "find WoW Forever addons and install one"),
+                          ("wu setup", "if wu found the wrong WoW folder")):
+            print(f"     {hl_cmd(cmd)}{' ' * (16 - len(cmd))}{GRAY}{desc}{RESET}")
+        return 0
     pool, futures = start_checks(addons) if found else (None, None)
     banner(len(addons))
     if not found:
@@ -1364,7 +1354,7 @@ def cmd_setup(args):
     try:
         n = len(load_state()["addons"])
     except Exception:
-        n = len(DEFAULT_ADDONS)
+        n = 0
     now = short_path(WOW_DIR) if WOW_DIR.exists() else "not set"
     banner(n, [
         f"{BOLD}wu setup{RESET}",
@@ -1805,7 +1795,7 @@ def cmd_help(_args):
     try:
         n = len(load_state()["addons"])
     except Exception:
-        n = len(DEFAULT_ADDONS)
+        n = 0
     banner(n, [
         f"{BOLD}wu{RESET} {GRAY}v{VERSION}{RESET}",
         f"{GRAY}Keeps your WoW Forever addons fresh{RESET}",
@@ -1912,7 +1902,21 @@ def install_project(ref, raw):
     return 0
 
 
+def autodetect_wow_dir():
+    """No WU_DIR, no config, default path missing: use the first WoW Forever we can find."""
+    global WOW_DIR, ADDONS_DIR
+    if os.environ.get("WU_DIR") or os.environ.get("WOW_U_DIR") or CONFIG_FILE.exists() or WOW_DIR.exists():
+        return
+    found = detect_forever()
+    if found:
+        WOW_DIR, ADDONS_DIR = found[0], found[0] / "Interface" / "AddOns"
+        print(rich(f"Using WoW Forever found at `{tilde(found[0])}` (run `wu setup` to choose another)"))
+        print()
+
+
 def main(argv):
+    if not argv or argv[0] not in ("-h", "--help", "help", "-help", "?", "--version", "-V", "version", "setup"):
+        autodetect_wow_dir()
     if argv and argv[0] in ("-h", "--help", "help", "-help", "?"):
         return cmd_help(argv)
     if argv and argv[0] in ("--version", "-V", "version"):
