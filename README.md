@@ -13,7 +13,8 @@ You need [Bun](https://bun.sh) and `python3` (any recent version, standard libra
 bun add -g github:EndreJohnsen/wu
 ```
 
-Run the same command again to upgrade. Then:
+Run the same command again to upgrade (if it ever keeps an old copy, run
+`bun remove -g @endrejohnsen/wu` first). Then:
 
 ```sh
 wu setup    # finds WoW Forever in your Wine/Proton/Lutris/Bottles prefixes, or paste the path
