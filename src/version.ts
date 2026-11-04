@@ -212,14 +212,19 @@ export async function selfUpdate(target?: string | null): Promise<boolean> {
     println(result(`${GREEN}Done.${RESET}${GRAY} Bun installed it to ${tilde(where.pkgRoot)}${RESET}`, GRAY));
     return true;
   }
-  // put the old wu back exactly where it was, with its command
-  rmSync(where.pkgRoot, { recursive: true, force: true });
-  mkdirSync(dirname(where.pkgRoot), { recursive: true });
-  cpSync(backup, where.pkgRoot, { recursive: true });
-  const link = join(binDir, "wu");
-  try {
-    if (!existsSync(link)) symlinkSync(relative(binDir, join(where.pkgRoot, pkg.bin.wu)), link);
-  } catch {}
+  // put the old wu back: through bun first (recreates the command, incl. Windows .exe shims),
+  // otherwise copy the files back and relink the command by hand
+  scrubBunGlobal(where.globalDir);
+  const back = await run([bun, "add", "-g", `github:${REPO}#v${VERSION}`]);
+  if (!back.ok || !existsSync(join(where.pkgRoot, "package.json"))) {
+    rmSync(where.pkgRoot, { recursive: true, force: true });
+    mkdirSync(dirname(where.pkgRoot), { recursive: true });
+    cpSync(backup, where.pkgRoot, { recursive: true });
+    const link = join(binDir, "wu");
+    try {
+      if (!existsSync(link)) symlinkSync(relative(binDir, join(where.pkgRoot, pkg.bin.wu)), link);
+    } catch {}
+  }
   rmSync(backup, { recursive: true, force: true });
   println(`${bullet("err")} ${BOLD}Update${RESET}(wu v${VERSION} → v${target})`);
   println(result(`${why || "bun didn't install it"} · kept v${VERSION}`, RED));

@@ -1,6 +1,6 @@
 // Download a CurseForge file, unzip it (built-in reader: stored + deflate, zip64), and swap the
 // addon folders in with a rollback.
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, renameSync as fsRename, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { inflateRawSync } from "node:zlib";
 import { type CfFile, cdnUrl } from "./curseforge";
@@ -8,6 +8,20 @@ import { addonsDir } from "./paths";
 import { UA } from "./version";
 
 export type Progress = { done: number; total: number; phase: string };
+
+const BUSY = new Set(["EPERM", "EBUSY", "EACCES", "ENOTEMPTY"]);
+
+/** rename, retried for a moment: on Windows a virus scanner or Explorer can hold a fresh file briefly. */
+export function renameSync(from: string, to: string): void {
+  for (let i = 0; ; i++) {
+    try {
+      return fsRename(from, to);
+    } catch (e: any) {
+      if (i >= 8 || !BUSY.has(e?.code) || process.platform !== "win32") throw e;
+      Bun.sleepSync(60 * (i + 1));
+    }
+  }
+}
 
 /** Delete a tree without ever following symlinks out of it. */
 export function rmTree(p: string): void {
@@ -20,7 +34,15 @@ export function rmTree(p: string): void {
   if (st.isDirectory()) {
     for (const name of readdirSync(p)) rmTree(join(p, name));
     rmdirSync(p);
-  } else unlinkSync(p);
+  } else {
+    try {
+      unlinkSync(p);
+    } catch (e: any) {
+      if (e?.code !== "EPERM") throw e;
+      chmodSync(p, 0o666); // Windows: read-only files can't be deleted until made writable
+      unlinkSync(p);
+    }
+  }
 }
 
 export async function download(f: CfFile, progress: Progress): Promise<Uint8Array> {

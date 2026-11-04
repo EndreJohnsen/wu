@@ -1,8 +1,9 @@
 # Agent notes for wu
 
 wu is a terminal addon manager for WoW Forever, written in TypeScript and run by Bun only
-(no Python, no runtime npm dependencies). Users install it from this GitHub repo with
-`bun add -g github:EndreJohnsen/wu` and upgrade with `wu update`.
+(no Python, no runtime npm dependencies). It supports Linux, macOS and Windows. Users install it
+from this GitHub repo with `bun add -g github:EndreJohnsen/wu` (which takes `main`, so `main` must
+always work) and upgrade with `wu update` (which takes the newest tag).
 
 ## Releasing a new version
 
@@ -46,6 +47,18 @@ unset WAYLAND_DISPLAY DISPLAY   # so share tests don't overwrite the real clipbo
 ```
 
 Use copied addon folders in the sandbox, not symlinks to a real `AddOns` folder.
+
+**Windows** can be tested from Linux by running Bun's Windows build under Wine, where
+`process.platform` really is `win32`: download `bun-windows-x64-baseline.zip` from Bun's GitHub
+releases, make a fresh `WINEPREFIX` (`wineboot -i`), copy `src/` and `package.json` to its
+`drive_c`, fake a WoW install at `drive_c/Program Files (x86)/World of Warcraft/_forever_`, unset
+the `XDG_*` variables, and run `wine bun.exe 'C:\wu\src\wu.ts' <command>`. Ignore Wine's
+`MESA-EGL` lines and Bun's "directory mismatch" notes; Wine's console also garbles some redraws,
+so judge the interactive look on real Windows Terminal, not Wine.
+
+Keep paths portable: build them with `node:path` `join`, split with `/[\\/]/`, and never assume
+`/` or a home-relative layout (Windows keeps config in `%APPDATA%\wu` and state in
+`%LOCALAPPDATA%\wu`).
 
 ## Things that look odd but are deliberate
 

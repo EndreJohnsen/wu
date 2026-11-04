@@ -2,7 +2,8 @@
 import { writeSync } from "node:fs";
 import { createInterface } from "node:readline";
 
-export const TTY = Boolean(process.stdout.isTTY) && process.env.TERM !== "dumb";
+// WU_PLAIN=1 (or TERM=dumb) turns off animations, redraws and colors for consoles that garble them
+export const TTY = Boolean(process.stdout.isTTY) && process.env.TERM !== "dumb" && !process.env.WU_PLAIN;
 export const COLOR = TTY && !process.env.NO_COLOR;
 export type RGB = readonly [number, number, number];
 
@@ -107,7 +108,7 @@ export function hlCmd(cmd: string, base = GRAY): string {
     else if (tok.startsWith("-")) style = SX_FLAG;
     else if ("<[".includes(tok[0]!) && ">]".includes(tok[tok.length - 1]!)) style = SX_HOLE;
     else if (tok.startsWith("/") && !tok.slice(1).includes("/")) style = SX_GAME;
-    else if (/^(~|\/|http|C:)/.test(tok)) style = SX_PATH;
+    else if (/^(~|\/|http|[A-Za-z]:[\\/])/.test(tok)) style = SX_PATH;
     else if (SUBCOMMANDS.has(tok) && i <= 2) style = SX_SUB;
     else style = SX_ARG;
     out.push(`${RESET}${style}${tok}`);

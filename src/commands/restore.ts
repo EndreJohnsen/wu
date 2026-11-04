@@ -1,7 +1,8 @@
 // `wu restore`: resurrect addons and/or WTF settings from a soulstone (wu casts one before every update).
-import { readFileSync, renameSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { finale } from "../engram";
+import { renameSync } from "../install";
 import { type State, WOW_DIR, acquireLock, addonsDir, isDir, loadState, saveState, wowRunning } from "../paths";
 import { type Stone, castSoulstone, copyTree, listStones, sealSoulstone, stoneSummary, withCast } from "../soulstone";
 import { BOLD, CLAUDE, GRAY, GREEN, RESET, TTY, YELLOW, bullet, choose, fmtAgo, fmtSize, lead, println, result, rich } from "../term";

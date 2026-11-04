@@ -59,6 +59,8 @@ function clipTools(dir: "copy" | "paste"): string[][] {
   if (process.env.DISPLAY)
     t.push(...(dir === "copy" ? [["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"]] : [["xclip", "-selection", "clipboard", "-o"], ["xsel", "--clipboard", "--output"]]));
   if (process.platform === "darwin") t.push(dir === "copy" ? ["pbcopy"] : ["pbpaste"]);
+  if (process.platform === "win32")
+    t.push(...(dir === "copy" ? [["clip"]] : [["powershell", "-NoProfile", "-Command", "Get-Clipboard"], ["pwsh", "-NoProfile", "-Command", "Get-Clipboard"]]));
   return t;
 }
 
@@ -183,7 +185,10 @@ export async function cmdShare(withSettings: boolean): Promise<number> {
   const nSettings = Object.keys(data.wtf ?? {}).length;
   println(`${bullet(tool ? "ok" : "warn")} ${BOLD}Share${RESET}(${addons.length} addons${withSettings ? ` + settings for ${nSettings}` : ""})`);
   if (tool) println(result(`Copied to your clipboard${tool === "terminal" ? " (through the terminal)" : ` (${tool})`} · ${code.length.toLocaleString()} characters`));
-  else println(result("Couldn't reach a clipboard tool (wl-copy, xclip, xsel, pbcopy). Copy the code below by hand:", YELLOW));
+  else {
+    const tools = process.platform === "win32" ? "clip" : process.platform === "darwin" ? "pbcopy" : "wl-copy, xclip or xsel";
+    println(result(`Couldn't reach the clipboard (${tools}). Copy the code below by hand:`, YELLOW));
+  }
   println(`     ${GRAY}${tool && code.length > 90 ? code.slice(0, 40) + "…" + code.slice(-20) : code}${RESET}`);
   println();
   println(`  ${rich("Your friend runs `wu add` (it reads the code from their clipboard), or `wu add <code>`.")}`);

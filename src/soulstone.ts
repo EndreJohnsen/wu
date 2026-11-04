@@ -1,9 +1,9 @@
 // Soulstones: a backup cast right before wu changes addons. Old addon folders are *moved* in (instant),
 // the WTF folder is copied with reflinks where the filesystem allows (btrfs/xfs: near free), plus
 // wu's own state. `wu restore` resurrects from one.
-import { constants, copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, renameSync } from "node:fs";
+import { constants, copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { rmTree } from "./install";
+import { renameSync, rmTree } from "./install";
 import { STATE_FILE, WOW_DIR, isDir, writeJsonAtomic } from "./paths";
 import { BOLD, RESET, Spinner, bullet, live } from "./term";
 

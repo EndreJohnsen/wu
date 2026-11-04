@@ -7,16 +7,27 @@ install addons from CurseForge, with a spinning ASCII engram and a WoW cast bar 
 
 ## Install
 
-All you need is [Bun](https://bun.sh).
+wu runs on [Bun](https://bun.com). These install the official Bun first if you don't have it,
+then wu.
+
+**Linux / macOS** (any terminal):
 
 ```sh
-bun add -g github:EndreJohnsen/wu
+command -v bun >/dev/null || curl -fsSL https://bun.com/install | bash
+export PATH="${BUN_INSTALL:-$HOME/.bun}/bin:$PATH" && bun add -g github:EndreJohnsen/wu
 ```
 
-Then:
+**Windows** (PowerShell, ideally in Windows Terminal):
+
+```powershell
+if (-not (Get-Command bun -ErrorAction SilentlyContinue)) { irm bun.com/install.ps1 | iex }
+$env:Path = "$HOME\.bun\bin;$env:Path"; bun add -g github:EndreJohnsen/wu
+```
+
+Already have Bun? Just `bun add -g github:EndreJohnsen/wu`. Then:
 
 ```sh
-wu setup    # searches your disks for WoW Forever (Wine/Proton/Lutris/Bottles too), or paste the path
+wu setup    # finds WoW Forever by itself (Battle.net, Wine/Proton/Lutris/Bottles, any drive), or paste the path
 wu import   # adopt the addons you already have
 wu          # keep everything up to date
 ```
@@ -39,7 +50,7 @@ it starts. `wu update` does it any time.
 | `wu share` | copy a code with your addon list to the clipboard |
 | `wu share_wtf` | the same, plus your addons' settings |
 | `wu restore` | bring addons and/or WTF settings back from a Soulstone (taken before every update) |
-| `wu setup [path]` | find WoW Forever by itself, or take a path: Linux, `C:\…` Windows paths, `file://` links, `Wow.exe` |
+| `wu setup [path]` | find WoW Forever by itself, or take a path: Linux or Windows paths (`%ProgramFiles(x86)%` works), `file://` links, `Wow.exe` |
 | `wu update` | update wu itself |
 | `wu --version` | print the installed version |
 | `wu help` | the screen above |
@@ -79,10 +90,11 @@ is running, because WoW rewrites those files when you log out.
 
 | What | Where |
 | --- | --- |
-| WoW path | `~/.config/wu/config.json` (or the `WU_DIR` environment variable) |
-| Tracked addons | `~/.local/state/wu/state.json` |
+| WoW path | `~/.config/wu/config.json` · Windows: `%APPDATA%\wu\config.json` (or the `WU_DIR` environment variable) |
+| Tracked addons | `~/.local/state/wu/state.json` · Windows: `%LOCALAPPDATA%\wu\state.json` |
 
-Works on Linux and macOS terminals. Windows isn't supported; there the CurseForge app does the job.
+Works on Linux, macOS and Windows. On Windows, use Windows Terminal (the default on Windows 11).
+If a console ever shows garbled output, `WU_PLAIN=1` turns off the animations and colors.
 
 ## Releasing
 
