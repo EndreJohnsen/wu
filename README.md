@@ -115,13 +115,16 @@ If a console ever shows garbled output, `WU_PLAIN=1` turns off the animations an
 
 `wu update` from v1.4.1 or older can leave Windows with a broken `wu` command: it says
 "corrupted node_modules", and `bun add` fails with `EEXIST`. (Bun couldn't replace `wu.exe`
-while it was running. v1.4.2 and newer avoid this.) Close any window running wu, then in PowerShell:
+while it was running. v1.4.2 and newer avoid this.) Close any window running wu, then paste this
+one line into PowerShell:
 
 ```powershell
-Remove-Item ~\.bun\bin\wu.exe, ~\.bun\bin\wu -ErrorAction SilentlyContinue
-bun remove -g @endrejohnsen/wu
-bun add -g github:EndreJohnsen/wu
+Remove-Item ~\.bun\bin\wu.exe -Force; Remove-Item ~\.bun\bin\wu -Force -ErrorAction Ignore; bun remove -g @endrejohnsen/wu; bun add -g github:EndreJohnsen/wu; wu --version
 ```
+
+The first part matters most: until that leftover `wu.exe` is gone, every `bun add` fails with
+`EEXIST`, `--force` included. (wu isn't on npm, so `bun add -g @endrejohnsen/wu` gives a 404;
+always use the `github:` form.)
 
 Your addons and settings aren't touched; they live in WoW's folder and `%LOCALAPPDATA%\wu`.
 
