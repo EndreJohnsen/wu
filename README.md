@@ -1,7 +1,7 @@
 # wu
 
 A terminal addon manager for **World of Warcraft: Forever**. Update, search, import, share and
-install addons from CurseForge, with a spinning ASCII engram and a WoW cast bar while it works.
+install addons from CurseForge.
 
 ![wu help](docs/wu-help.png)
 
