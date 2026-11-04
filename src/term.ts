@@ -187,15 +187,17 @@ export class Live {
   private frame = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
 
-  start(render: (frame: number) => string[]): void {
+  /** `every`: redraw interval in ms (short casts use a faster one so each visibly lands). */
+  start(render: (frame: number) => string[], every = 80): void {
     this.render = render;
+    drawnSpinners.clear();
     if (!TTY) return;
     write("\x1b[?25l");
     this.draw();
     this.timer ??= setInterval(() => {
       this.frame++;
       this.draw();
-    }, 80);
+    }, every);
   }
 
   private clear(): void {
@@ -235,6 +237,20 @@ export class Live {
     this.timer = null;
     if (TTY) this.clear();
     this.render = null;
+  }
+
+  /** Let every cast bar on screen land at 100% (quickly) and flash, then clear the region (or keep it). */
+  async settle(stop = true): Promise<void> {
+    if (TTY && this.render && drawnSpinners.size) {
+      const wait = Math.max(...[...drawnSpinners].map((s) => s.land()));
+      const end = Date.now() + wait + HOLD_MS;
+      while (Date.now() < end) {
+        this.frame++;
+        this.draw();
+        await Bun.sleep(20);
+      }
+    }
+    if (stop) this.stop();
   }
 }
 
@@ -292,35 +308,75 @@ export function shuffle<T>(xs: T[]): T[] {
 }
 export const choice = <T>(xs: readonly T[]): T => xs[Math.floor(Math.random() * xs.length)]!;
 
+const LAND_MS = 200; // when the work is done, the current cast races to 100% this fast
+const HOLD_MS = 110; // and the full bar flashes this long before it clears
+const drawnSpinners = new Set<Spinner>();
+
 /** WoW-style cast bar: one random "spell" after another, each with its own cast time. */
 export class Spinner {
   static WIDTH = 12;
   start = Date.now();
   private casts: [string, RGB, number][];
   private cycle: number;
+  private loop: boolean;
+  private hold: number; // seconds each cast sits at 100% (flashing) before the next one starts
+  private landing: { at: number; from: number; cast: [string, RGB, number] } | null = null;
 
-  /** `fixed`: play these casts in order ([name, school, seconds]) instead of random ones. */
+  /** `fixed`: play these casts once, in order ([name, school, seconds]), instead of random ones. */
   constructor(fixed?: [string, string, number][]) {
     this.casts = fixed
       ? fixed.map(([name, school, dur]) => [name, SCHOOLS[school] ?? SCHOOLS.gold!, dur])
       : shuffle(CASTS).map(([name, school]) => [name, SCHOOLS[school]!, 2.0 + Math.random() * 1.6]);
-    this.cycle = this.casts.reduce((s, c) => s + c[2], 0);
+    this.loop = !fixed;
+    this.hold = fixed ? 0.05 : 0.14;
+    this.cycle = this.casts.reduce((s, c) => s + c[2] + this.hold, 0);
+  }
+
+  /** Start over (e.g. a new search page): fresh cast, not landed. */
+  reset(): void {
+    this.start = Date.now();
+    this.landing = null;
+  }
+
+  /** The work is done: make the current cast finish. Returns ms until the bar is full. */
+  land(): number {
+    if (this.landing) return Math.max(0, LAND_MS - (Date.now() - this.landing.at));
+    const [name, color, dur, t] = this.current((Date.now() - this.start) / 1000);
+    const from = Math.min(1, t / dur);
+    this.landing = { at: from >= 1 ? Date.now() - LAND_MS : Date.now(), from, cast: [name, color, dur] };
+    return from >= 1 ? 0 : LAND_MS;
+  }
+
+  /** For a fixed sequence: ms until every cast in it has played out. */
+  sequenceLeftMs(): number {
+    return this.loop ? 0 : Math.max(0, this.cycle * 1000 - (Date.now() - this.start));
   }
 
   private current(elapsed: number): [string, RGB, number, number] {
-    let t = elapsed % this.cycle;
+    if (!this.loop && elapsed >= this.cycle) {
+      const [n, c, d] = this.casts[this.casts.length - 1]!; // sequence done: hold the last cast full
+      return [n, c, d, d];
+    }
+    let t = this.loop ? elapsed % this.cycle : elapsed;
     for (const [name, color, dur] of this.casts) {
-      if (t < dur) return [name, color, dur, t];
-      t -= dur;
+      if (t < dur + this.hold) return [name, color, dur, Math.min(t, dur)]; // fill, then land and hold
+      t -= dur + this.hold;
     }
     const [n, c, d] = this.casts[0]!;
     return [n, c, d, 0];
   }
 
   line(frame: number, extras: string[] = []): string {
+    drawnSpinners.add(this);
     const elapsed = (Date.now() - this.start) / 1000;
-    const [name, color, dur, t] = this.current(elapsed);
-    const prog = Math.min(1, t / dur);
+    let [name, color, dur, t] = this.current(elapsed);
+    let prog = Math.min(1, t / dur);
+    if (this.landing) {
+      [name, color, dur] = this.landing.cast;
+      const k = Math.min(1, (Date.now() - this.landing.at) / LAND_MS);
+      prog = this.landing.from + (1 - this.landing.from) * (1 - (1 - k) ** 2); // ease into full
+      t = prog * dur;
+    }
     const W = Spinner.WIDTH;
     const icon = SWEEP[Math.round(prog * 4)]!;
     const bits = [fmtDur(elapsed), ...extras, "ctrl+c to cancel"].join(" · ");

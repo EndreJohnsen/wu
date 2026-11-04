@@ -61,7 +61,7 @@ export async function cmdRestore(args: string[]): Promise<number> {
   const reversed = stone.manifest.addons.map((a) => ({ ...a, from: a.to, to: a.from }));
   const undo = await castSoulstone("restore", reversed, stone.dir);
   const restored: string[] = [];
-  await withCast("Restore(resurrecting)", [["Using Soulstone", "shadow", 0.25], ["Resurrecting", "holy", 0.3]], 500, () => {
+  await withCast("Restore(resurrecting)", [["Using Soulstone", "shadow", 0.2], ["Resurrecting", "holy", 0.25]], 0, () => {
     if (doAddons) {
       const old: State | null = (() => {
         try {

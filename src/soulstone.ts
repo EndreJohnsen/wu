@@ -57,15 +57,16 @@ function prune(protect?: string): void {
   for (const s of listStones().slice(KEEP)) if (s.dir !== protect) rmTree(s.dir);
 }
 
-/** Show a short cast while `work` runs (at least `minMs`, so you can see it land). */
+/** Play a fixed cast sequence while `work` runs; every cast in it lands, then the bar flashes. */
 export async function withCast<T>(title: string, casts: [string, string, number][], minMs: number, work: () => T | Promise<T>): Promise<T> {
   const spin = new Spinner(casts);
-  live.start((f) => [`${bullet("run", f)} ${BOLD}${title}${RESET}`, "", spin.line(f)]);
+  live.start((f) => [`${bullet("run", f)} ${BOLD}${title}${RESET}`, "", spin.line(f)], 25);
   const t0 = Date.now();
   try {
     const out = await work();
-    const left = minMs - (Date.now() - t0);
+    const left = Math.max(minMs - (Date.now() - t0), spin.sequenceLeftMs());
     if (left > 0) await Bun.sleep(left);
+    await live.settle();
     return out;
   } finally {
     live.stop();
@@ -74,7 +75,7 @@ export async function withCast<T>(title: string, casts: [string, string, number]
 
 /** Cast a soulstone: WTF + wu state now; old addon folders get moved in as they're replaced. */
 export async function castSoulstone(reason: string, addons: StoneAddon[], protect?: string): Promise<Stone> {
-  return withCast("Soulstone(backing up first)", [["Casting Soulstone", "shadow", 0.22], ["Applying Soulstone", "fel", 0.22]], 450, () => {
+  return withCast("Soulstone(backing up first)", [["Casting Soulstone", "shadow", 0.16], ["Applying Soulstone", "fel", 0.16]], 0, () => {
     const dir = join(stonesDir(), stampId());
     mkdirSync(join(dir, "AddOns"), { recursive: true });
     const wtf = join(WOW_DIR, "WTF");

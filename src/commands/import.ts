@@ -224,6 +224,7 @@ export async function cmdImport(args: string[]): Promise<number> {
       await run(leftovers.filter((n) => !matches.has(n)));
       for (const n of leftovers) if (!claimed.has(n)) claim(n);
     }
+    await live.settle();
   } finally {
     live.stop();
   }

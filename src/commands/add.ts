@@ -35,7 +35,7 @@ export async function installProject(ref: string, label: string): Promise<number
     println(`${bullet("err")} ${BOLD}Lookup${RESET}(${label})\n${result(e?.message ?? String(e), RED)}`);
     return 1;
   }
-  live.stop();
+  await live.settle();
   const pid = String(data.id);
   const title = data.title || label;
   const f = pickFile(data);
@@ -64,6 +64,7 @@ export async function installProject(ref: string, label: string): Promise<number
   let folders: string[];
   try {
     folders = await install(entry, f, progress, workdir);
+    await live.settle();
   } catch (e: any) {
     live.stop();
     println(`${bullet("err")} ${BOLD}Install${RESET}(${title})\n${result(e?.message ?? String(e), RED)}`);

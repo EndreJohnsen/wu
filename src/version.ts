@@ -200,6 +200,7 @@ export async function selfUpdate(target?: string | null): Promise<boolean> {
       }
     })();
     ok = r.ok && got !== null && !newer(target, got);
+    if (ok) await live.settle();
     why = ok ? "" : r.ok ? `bun installed v${got ?? "?"} instead` : r.out.split("\n").slice(-2).join(" ");
   } catch (e: any) {
     why = e?.message ?? String(e);

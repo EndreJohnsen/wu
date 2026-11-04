@@ -38,6 +38,7 @@ async function search(): Promise<string[]> {
   })();
   try {
     await scanDisks(progress, 20000);
+    await live.settle();
   } finally {
     progress.abort = true;
     keys?.stop();

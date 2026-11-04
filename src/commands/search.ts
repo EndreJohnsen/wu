@@ -12,10 +12,12 @@ export async function cmdSearch(args: string[]): Promise<number> {
   const tracked = new Set(Object.keys(loadState().addons));
   const label = query ? `"${query}"` : "top addons";
   const ui = { sort: 0, page: 0, items: [] as any[], total: 0, cursor: 0, loading: true, error: "", note: "" };
+  const spin = new Spinner();
 
   const fetchPage = async () => {
     ui.loading = true;
     ui.error = "";
+    spin.reset();
     live.refresh();
     try {
       const { items, total } = await searchCf(query, SORTS[ui.sort]![0], ui.page);
@@ -23,6 +25,7 @@ export async function cmdSearch(args: string[]): Promise<number> {
     } catch (e: any) {
       Object.assign(ui, { items: [], total: 0, error: `search failed: ${e?.message ?? e}` });
     }
+    await live.settle(false); // let the cast land before the results replace it
     Object.assign(ui, { cursor: 0, loading: false });
   };
 
@@ -39,7 +42,6 @@ export async function cmdSearch(args: string[]): Promise<number> {
     return 0;
   }
 
-  const spin = new Spinner();
   const head = () => `${bullet("ok")} ${BOLD}Search${RESET}(${label}) ${GRAY}· WoW Forever · ${RESET}${CLAUDE}${SORTS[ui.sort]![1]}${RESET}`;
   const render = (frame: number) => {
     const pages = Math.max(1, Math.ceil(ui.total / 10));

@@ -57,6 +57,7 @@ async function checkAll(addons: Record<string, Entry>, checks: Map<string, Promi
   });
   try {
     await Promise.all([...checks].map(([pid, p]) => p.then((r) => (results.set(pid, r), pending.delete(pid)))));
+    await live.settle();
   } finally {
     live.stop();
   }
@@ -188,6 +189,7 @@ export async function cmdUpdate(args: string[]): Promise<number> {
           failed.push([a.title, String(e?.message ?? e)]);
         }
       }
+      await live.settle();
     } finally {
       live.stop();
       removeIfEmpty(workdir);
