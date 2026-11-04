@@ -18,7 +18,8 @@ const VERSIONS = ["--version", "-V", "version"];
 async function main(argv: string[]): Promise<number> {
   const cmd = argv[0] ?? "";
   if (VERSIONS.includes(cmd)) {
-    println(`wu ${VERSION}`);
+    const newer = await checkForUpdate(false, 800);
+    println(`wu ${VERSION}` + (newer ? rich(` (v${newer} is out · run \`wu update\`)`) : ""));
     return 0;
   }
   if (cmd === "update" || cmd === "self-update" || cmd === "upgrade") {
