@@ -1,0 +1,293 @@
+// Where things live: WoW Forever, config, state, the lock, and finding WoW on disk.
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync, writeSync } from "node:fs";
+import { homedir, userInfo } from "node:os";
+import { join, sep } from "node:path";
+import { RED, RESET, println, rich } from "./term";
+
+export const GAME_VERSION = "1.60.1"; // CurseForge's game-version tag for WoW Forever
+export const HOME = homedir();
+export const DEFAULT_WOW_DIR = join(HOME, "Games/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_");
+export const CONFIG_DIR = join(process.env.XDG_CONFIG_HOME || join(HOME, ".config"), "wu");
+export const CONFIG_FILE = join(CONFIG_DIR, "config.json");
+export const STATE_DIR = join(process.env.XDG_STATE_HOME || join(HOME, ".local/state"), "wu");
+export const STATE_FILE = join(STATE_DIR, "state.json");
+
+export const isDir = (p: string) => {
+  try {
+    return statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+};
+export const isFile = (p: string) => {
+  try {
+    return statSync(p).isFile();
+  } catch {
+    return false;
+  }
+};
+
+export function tilde(p: string): string {
+  return p === HOME || p.startsWith(HOME + sep) ? "~" + p.slice(HOME.length) : p;
+}
+export function shortPath(p: string, width = 44): string {
+  const s = tilde(p);
+  if (s.length <= width) return s;
+  const parts = s.split("/");
+  return parts.slice(0, 3).join("/") + "/…/" + parts[parts.length - 1];
+}
+
+const envDir = () => process.env.WU_DIR || process.env.WOW_U_DIR || "";
+
+export function configuredWowDir(): string {
+  if (envDir()) return envDir();
+  try {
+    return JSON.parse(readFileSync(CONFIG_FILE, "utf8")).wow_dir || DEFAULT_WOW_DIR;
+  } catch {
+    return DEFAULT_WOW_DIR;
+  }
+}
+
+export let WOW_DIR = configuredWowDir();
+export const addonsDir = () => join(WOW_DIR, "Interface", "AddOns");
+export function setWowDir(p: string): void {
+  WOW_DIR = p;
+}
+
+export function writeJsonAtomic(path: string, data: unknown): void {
+  const tmp = path + ".tmp";
+  writeFileSync(tmp, JSON.stringify(data, null, 2) + "\n");
+  renameSync(tmp, path);
+}
+
+export function saveConfig(wowDir: string): void {
+  mkdirSync(CONFIG_DIR, { recursive: true });
+  writeJsonAtomic(CONFIG_FILE, { wow_dir: wowDir });
+}
+export const hasConfig = () => existsSync(CONFIG_FILE);
+export const envOverride = () => Boolean(envDir());
+
+// ── state ────────────────────────────────────────────────────────────────────
+
+export type Entry = {
+  title: string;
+  file_id: number | null;
+  file_name?: string;
+  version: string | null;
+  folders: string[];
+  updated_at?: string;
+};
+export type State = { addons: Record<string, Entry> };
+
+export function loadState(): State {
+  try {
+    const s = JSON.parse(readFileSync(STATE_FILE, "utf8"));
+    return { ...s, addons: s.addons ?? {} };
+  } catch (e: any) {
+    if (e?.code === "ENOENT") return { addons: {} };
+    throw new Error(`can't read ${tilde(STATE_FILE)}: ${e.message}`);
+  }
+}
+
+export function saveState(state: State): void {
+  mkdirSync(STATE_DIR, { recursive: true });
+  writeJsonAtomic(STATE_FILE, state);
+}
+
+const alive = (pid: number) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e: any) {
+    return e?.code === "EPERM";
+  }
+};
+
+let lockHeld = false;
+/** One wu at a time: a lock file holding our pid (stale locks from dead processes are taken over). */
+export function acquireLock(): void {
+  if (lockHeld) return;
+  mkdirSync(STATE_DIR, { recursive: true });
+  const path = join(STATE_DIR, "lock");
+  try {
+    const fd = openSync(path, "wx");
+    writeSync(fd, String(process.pid));
+    closeSync(fd);
+  } catch (e: any) {
+    if (e?.code !== "EEXIST") throw e;
+    const pid = Number(readFileSync(path, "utf8").trim());
+    if (pid && pid !== process.pid && alive(pid)) {
+      println(`${RED}●${RESET} Another wu is already running.`);
+      process.exit(1);
+    }
+    writeFileSync(path, String(process.pid));
+  }
+  lockHeld = true;
+  process.on("exit", () => {
+    try {
+      if (readFileSync(path, "utf8").trim() === String(process.pid)) unlinkSync(path);
+    } catch {}
+  });
+}
+
+// ── finding WoW Forever ──────────────────────────────────────────────────────
+
+function glob(pattern: string): string[] {
+  if (!/[*?[]/.test(pattern)) return existsSync(join(HOME, pattern)) ? [join(HOME, pattern)] : [];
+  try {
+    return [...new Bun.Glob(pattern).scanSync({ cwd: HOME, onlyFiles: false, dot: true, absolute: true })].sort();
+  } catch {
+    return [];
+  }
+}
+
+export function winePrefixes(): string[] {
+  const pats = ["Games/*", ".wine", ".wine*", ".local/share/wineprefixes/*",
+    ".local/share/Steam/steamapps/compatdata/*/pfx", ".steam/steam/steamapps/compatdata/*/pfx",
+    ".local/share/bottles/bottles/*", ".var/app/com.usebottles.bottles/data/bottles/bottles/*",
+    ".local/share/lutris/prefixes/*", "Games/*/prefix"];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const add = (p: string, front = false) => {
+    let real = p;
+    try {
+      real = realpathSync(p);
+    } catch {}
+    if (seen.has(real) || !isDir(join(p, "drive_c"))) return;
+    seen.add(real);
+    front ? out.unshift(p) : out.push(p);
+  };
+  for (const pat of pats) for (const p of glob(pat)) add(p);
+  const parts = WOW_DIR.split("/"); // whatever prefix the current setting lives in
+  const i = parts.lastIndexOf("drive_c");
+  if (i > 0) add(parts.slice(0, i).join("/"), true);
+  return out;
+}
+
+/** Fast check of the usual Wine/Proton/Lutris/Bottles locations. */
+export function detectForever(): string[] {
+  const found: string[] = [];
+  for (const pfx of winePrefixes())
+    for (const pf of ["Program Files (x86)", "Program Files"]) {
+      const cand = join(pfx, "drive_c", pf, "World of Warcraft", "_forever_");
+      if (isDir(cand) && !found.includes(cand)) found.push(cand);
+    }
+  return found;
+}
+
+const SKIP = new Set(["node_modules", ".git", ".cache", ".npm", ".bun", ".cargo", ".rustup", ".nvm", ".pyenv", ".gradle",
+  ".m2", ".mozilla", ".vscode", ".vscode-server", "__pycache__", ".venv", "venv", "site-packages", "Trash", ".Trash",
+  ".thumbnails", "proc", "sys", "dev", "windows", "dosdevices", "shadercache", "snap", "lost+found"]);
+
+export type ScanProgress = { dirs: number; now: string; found: string[] };
+
+/** Walk the disks for WoW Forever (a `_forever_` folder with Wow.exe, or inside "World of Warcraft"). */
+export async function scanDisks(progress: ScanProgress, budgetMs = 20000): Promise<string[]> {
+  let user = "";
+  try {
+    user = userInfo().username;
+  } catch {}
+  const roots = [HOME, "/mnt", "/media", `/run/media/${user}`, "/opt", "/games", "/srv", "/Volumes", "/Applications"].filter(isDir);
+  const queue: [string, number][] = roots.map((r) => [r, 0]);
+  const real = (p: string) => {
+    try {
+      return realpathSync(p);
+    } catch {
+      return p;
+    }
+  };
+  const seen = new Set(progress.found.map(real)); // the quick check may have found some already
+  const t0 = performance.now();
+  let lastYield = t0;
+  while (queue.length && performance.now() - t0 < budgetMs) {
+    const [dir, depth] = queue.shift()!;
+    let entries;
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    progress.dirs++;
+    progress.now = dir;
+    for (const e of entries) {
+      if (!e.isDirectory()) continue; // symlinks are skipped too, so no loops
+      const full = join(dir, e.name);
+      if (e.name.toLowerCase() === "_forever_") {
+        if ((isFile(join(full, "Wow.exe")) || /world of warcraft$/i.test(dir)) && !seen.has(real(full))) {
+          seen.add(real(full));
+          progress.found.push(full);
+        }
+        continue;
+      }
+      const otherFlavor = /^_.+_$/.test(e.name); // _retail_, _classic_ ... never hold _forever_
+      if (!SKIP.has(e.name) && !otherFlavor && depth < 12) queue.push([full, depth + 1]);
+    }
+    if (performance.now() - lastYield > 40) {
+      await Bun.sleep(0); // let the cast bar animate
+      lastYield = performance.now();
+    }
+  }
+  return progress.found;
+}
+
+/** Accepts the _forever_ folder, anything inside it, Wow.exe, or the World of Warcraft folder. */
+export function toForeverDir(p: string): [string | null, string | null] {
+  if (isFile(p)) p = p.split("/").slice(0, -1).join("/") || "/";
+  p = p.replace(/\/+$/, "") || "/";
+  if (!isDir(p)) return [null, `${tilde(p)} doesn't exist.`];
+  const parts = p.split("/");
+  const i = parts.findIndex((x) => x.toLowerCase() === "_forever_");
+  if (i >= 0) return [parts.slice(0, i + 1).join("/"), null];
+  for (const cand of [join(p, "_forever_"), join(p, "World of Warcraft", "_forever_")]) if (isDir(cand)) return [cand, null];
+  if (isFile(join(p, "Wow.exe"))) return [p, null];
+  let flavors: string[] = [];
+  try {
+    flavors = readdirSync(p, { withFileTypes: true }).filter((d) => d.isDirectory() && /^_.*_$/.test(d.name)).map((d) => d.name).sort();
+  } catch {}
+  if (flavors.length) return [null, `No _forever_ folder there (found ${flavors.join(", ")}). Is WoW Forever installed?`];
+  return [null, `${tilde(p)} doesn't look like a World of Warcraft folder.`];
+}
+
+export function resolveWowInput(raw: string): [string | null, string | null] {
+  let s = raw.trim().replace(/^['"]|['"]$/g, "").trim();
+  if (s.startsWith("file://")) s = decodeURIComponent(s.slice("file://".length));
+  s = s.replace(/\\ /g, " ").replace(/\\\(/g, "(").replace(/\\\)/g, ")");
+  const m = /^([A-Za-z]):[\\/]*(.*)$/.exec(s);
+  if (m) {
+    // a Windows path from inside Wine: try it in every prefix we know
+    const rest = m[2]!.replace(/\\/g, "/");
+    const letter = m[1]!.toLowerCase();
+    let why = `Couldn't find ${s} in any Wine prefix. Paste the Linux path instead.`;
+    for (const pfx of winePrefixes()) {
+      const drive = letter === "c" ? join(pfx, "drive_c") : join(pfx, "dosdevices", `${letter}:`);
+      const [path, err] = toForeverDir(join(drive, rest));
+      if (path) return [path, null];
+      if (err?.includes("_forever_")) why = err;
+    }
+    return [null, why];
+  }
+  return toForeverDir(s.startsWith("~") ? HOME + s.slice(1) : s);
+}
+
+/** No WU_DIR, no config, default path missing: use the first WoW Forever the quick check finds. */
+export function autodetectWowDir(): void {
+  if (envOverride() || hasConfig() || isDir(WOW_DIR)) return;
+  const found = detectForever();
+  if (found.length) {
+    setWowDir(found[0]!);
+    println(rich(`Using WoW Forever found at \`${tilde(found[0]!)}\` (run \`wu setup\` to choose another)`));
+    println();
+  }
+}
+
+export function wowRunning(): boolean {
+  try {
+    for (const pid of readdirSync("/proc")) {
+      if (!/^\d+$/.test(pid)) continue;
+      try {
+        if (readFileSync(`/proc/${pid}/cmdline`).toString("latin1").toLowerCase().includes("wow.exe")) return true;
+      } catch {}
+    }
+  } catch {}
+  return false;
+}

@@ -1,7 +1,7 @@
 {
   "name": "@endrejohnsen/wu",
-  "version": "1.0.0",
-  "description": "Terminal addon manager for WoW Forever: update, search, import and install from CurseForge.",
+  "version": "1.1.0",
+  "description": "Terminal addon manager for WoW Forever: update, search, import, share and install addons from CurseForge. Runs on Bun.",
   "private": true,
   "license": "UNLICENSED",
   "author": "EndreJohnsen",
@@ -13,22 +13,34 @@
   "bugs": {
     "url": "https://github.com/EndreJohnsen/wu/issues"
   },
+  "type": "module",
   "bin": {
-    "wu": "bin/wu"
+    "wu": "src/wu.ts"
   },
   "files": [
-    "bin/",
+    "src/",
     "README.md"
   ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
   "os": [
     "linux",
     "darwin"
   ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "wu": "bun src/wu.ts"
+  },
   "keywords": [
     "wow",
     "world-of-warcraft",
     "addons",
     "curseforge",
     "cli"
-  ]
+  ],
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "typescript": "^7.0.2"
+  }
 }
