@@ -49,6 +49,7 @@ it starts. `wu update` does it any time.
 | `wu search [words]` | top 10 WoW Forever addons for a search; `1`–`9`/`0` installs, `tab` switches most downloads ⇄ most recent, `←→` pages |
 | `wu add <addon>` | install and track one addon (CurseForge link, slug or project id) |
 | `wu add <code>` | install everything in a share code (plain `wu add` picks it up from the clipboard, or asks you to paste it) |
+| `wu remove [addon]` | tick addons in a checklist (`space` ticks, `a` all, `enter` removes), or name one: `wu remove questie`. Their folders go into a Soulstone, so `wu restore` brings them back; WTF settings stay |
 | `wu import [--yes]` | match the addons already in `Interface/AddOns` to CurseForge, then accept (`y`) or deny (`n`) each match |
 | `wu share` | copy a code with your addon list to the clipboard |
 | `wu share_wtf` | the same, plus your addons' settings |
@@ -62,7 +63,7 @@ If WoW is running while you update, type `/reload` in game afterwards.
 
 ## Soulstones (automatic backups)
 
-Before every real update wu casts a **Soulstone**: the WTF folder (copied with reflinks where the
+Before every real update (and every `wu remove`) wu casts a **Soulstone**: the WTF folder (copied with reflinks where the
 filesystem supports it, so it's near free on btrfs) plus the old versions of every addon it
 replaces (moved, not copied, so it's instant). The five newest are kept in
 `Interface/.wu/soulstones`. `wu restore` picks one and brings back the addons, the settings, or

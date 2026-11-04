@@ -5,7 +5,7 @@ import { finale } from "../engram";
 import { renameSync } from "../install";
 import { type State, WOW_DIR, acquireLock, addonsDir, isDir, loadState, saveState, wowRunning } from "../paths";
 import { type Stone, castSoulstone, copyTree, listStones, sealSoulstone, stoneSummary, withCast } from "../soulstone";
-import { BOLD, CLAUDE, GRAY, GREEN, RESET, TTY, YELLOW, bullet, choose, fmtAgo, fmtSize, lead, println, result, rich } from "../term";
+import { BOLD, CLAUDE, GRAY, GREEN, RESET, TTY, YELLOW, bullet, choose, fmtAgo, fmtSize, lead, plain, println, result, rich } from "../term";
 
 export async function cmdRestore(args: string[]): Promise<number> {
   acquireLock();
@@ -81,6 +81,7 @@ export async function cmdRestore(args: string[]): Promise<number> {
         }
         for (const f of a.folders) if (isDir(join(saved, f))) copyTree(join(saved, f), join(addonsDir(), f));
         if (old?.addons[a.pid]) state.addons[a.pid] = old.addons[a.pid]!;
+        else if (old) delete state.addons[a.pid]; // it wasn't tracked back then (e.g. undoing a restored removal)
         restored.push(`${a.title} ${a.from}`);
       }
       saveState(state);
@@ -96,10 +97,16 @@ export async function cmdRestore(args: string[]): Promise<number> {
   restored.forEach((r, i) => println(`${lead(i)}${GREEN}✓${RESET} ${r}`));
   println(`     ${GRAY}what you had a moment ago is in a new soulstone, ${RESET}${rich("`wu restore` again undoes this")}`);
   println();
-  await finale(
-    "Resurrected · log in and it's like the update never happened",
-    `${CLAUDE}Resurrected${RESET} ${GRAY}·${RESET} ${rich(doAddons ? "run `wu` later to get the updates back" : "settings are back", CLAUDE)}`,
-  );
+  const why = stone.manifest.reason;
+  const line = !doAddons
+    ? "settings are back"
+    : why === "remove"
+      ? "the removed addons are back"
+      : why === "restore"
+        ? "back to how it was before that restore"
+        : "run `wu` later to get the updates back";
+  const text = why === "remove" || why === "restore" || !doAddons ? `Resurrected · ${plain(rich(line))}` : "Resurrected · log in and it's like the update never happened";
+  await finale(text, `${CLAUDE}Resurrected${RESET} ${GRAY}·${RESET} ${rich(line, CLAUDE)}`);
   return 0;
 }
 

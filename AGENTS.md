@@ -96,7 +96,7 @@ Keep paths portable: build them with `node:path` `join`, split with `/[\\/]/`, a
 | Path | What |
 | --- | --- |
 | `src/wu.ts` | entry point and command routing |
-| `src/commands/` | one file per command (update, add/list, search, import, share, restore, setup, help) |
+| `src/commands/` | one file per command (update, add/list, search, import, remove, share, restore, setup, help) |
 | `src/term.ts` | colors, live redraw region, cast bar, keys, input box, menus |
 | `src/engram.ts` | the banner and the final ✻ line |
 | `src/version.ts` | version, update check, badge, boot prompt, self-update |

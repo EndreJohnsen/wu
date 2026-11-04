@@ -4,6 +4,7 @@ import { writeSync } from "node:fs";
 import { cmdAdd, cmdList } from "./commands/add";
 import { cmdHelp } from "./commands/help";
 import { cmdImport } from "./commands/import";
+import { cmdRemove } from "./commands/remove";
 import { cmdRestore } from "./commands/restore";
 import { cmdSearch } from "./commands/search";
 import { cmdSetup } from "./commands/setup";
@@ -74,6 +75,11 @@ async function main(argv: string[]): Promise<number> {
     case "restore":
     case "soulstone":
       return cmdRestore(argv.slice(1));
+    case "remove":
+    case "rm":
+    case "uninstall":
+    case "delete":
+      return cmdRemove(argv.slice(1));
     case "share_wtf":
     case "share-wtf":
       return cmdShare(true);
