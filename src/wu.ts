@@ -4,6 +4,7 @@ import { writeSync } from "node:fs";
 import { cmdAdd, cmdList } from "./commands/add";
 import { cmdHelp } from "./commands/help";
 import { cmdImport } from "./commands/import";
+import { cmdRestore } from "./commands/restore";
 import { cmdSearch } from "./commands/search";
 import { cmdSetup } from "./commands/setup";
 import { applyShare, cmdShare, isShareCode, readClipboard } from "./commands/share";
@@ -59,6 +60,9 @@ async function main(argv: string[]): Promise<number> {
       return cmdImport(argv.slice(1));
     case "share":
       return cmdShare(argv.includes("--wtf") || argv.includes("wtf"));
+    case "restore":
+    case "soulstone":
+      return cmdRestore(argv.slice(1));
     case "share_wtf":
     case "share-wtf":
       return cmdShare(true);

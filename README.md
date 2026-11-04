@@ -38,12 +38,21 @@ it starts. `wu update` does it any time.
 | `wu import [--yes]` | match the addons already in `Interface/AddOns` to CurseForge, then accept (`y`) or deny (`n`) each match |
 | `wu share` | copy a code with your addon list to the clipboard |
 | `wu share_wtf` | the same, plus your addons' settings |
+| `wu restore` | bring addons and/or WTF settings back from a Soulstone (taken before every update) |
 | `wu setup [path]` | find WoW Forever by itself, or take a path: Linux, `C:\…` Windows paths, `file://` links, `Wow.exe` |
 | `wu update` | update wu itself |
 | `wu --version` | print the installed version |
 | `wu help` | the screen above |
 
 If WoW is running while you update, type `/reload` in game afterwards.
+
+## Soulstones (automatic backups)
+
+Before every real update wu casts a **Soulstone**: the WTF folder (copied with reflinks where the
+filesystem supports it, so it's near free on btrfs) plus the old versions of every addon it
+replaces (moved, not copied, so it's instant). The five newest are kept in
+`Interface/.wu/soulstones`. `wu restore` picks one and brings back the addons, the settings, or
+both; it casts a fresh Soulstone first, so a restore can be undone too.
 
 ## Sharing settings safely
 

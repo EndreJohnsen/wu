@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { type CfFile, type Project, fetchProject, pickFile, prettyVersion } from "../curseforge";
 import { banner, finale } from "../engram";
 import { install, removeIfEmpty } from "../install";
+import { type StoneAddon, castSoulstone, keepInStone, sealSoulstone } from "../soulstone";
 import { type Entry, GAME_VERSION, WOW_DIR, acquireLock, addonsDir, isDir, loadState, saveState, tilde, wowRunning } from "../paths";
 import {
   BOLD, CLAUDE, DONE_VERBS, GRAY, GREEN, IDLE_VERBS, RED, RESET, STRIKE, Spinner, WHITE, YELLOW, bullet, choice, fmtDur,
@@ -159,6 +160,12 @@ export async function cmdUpdate(args: string[]): Promise<number> {
       return out;
     };
 
+    // back up first: WTF + wu's state now, old addon folders as they get replaced
+    const stone = await castSoulstone(
+      force ? "reinstall" : "update",
+      todo.map(({ pid, a, f }) => ({ pid, title: a.title, from: prev.get(pid)!, to: prettyVersion(f), folders: [...(a.folders ?? [])] })),
+    );
+    const changed: StoneAddon[] = [];
     live.start((f) => {
       const extras = progress.total ? [`↓ ${fmtSize(progress.done)}/${fmtSize(progress.total)}`] : [];
       return [...todoLines(f), "", spin.line(f, extras)];
@@ -167,8 +174,10 @@ export async function cmdUpdate(args: string[]): Promise<number> {
       for (const { pid, a, f } of todo) {
         status.set(pid, "run");
         Object.assign(progress, { done: 0, total: Number(f.filesize) || 0, phase: "downloading" });
+        const before = { pid, title: a.title, from: prev.get(pid)!, to: prettyVersion(f), folders: [...(a.folders ?? [])] };
         try {
-          const folders = await install(a, f, progress, workdir);
+          const folders = await install(a, f, progress, workdir, (backup) => keepInStone(stone, backup));
+          changed.push(before);
           Object.assign(a, { file_id: f.id, file_name: f.name, version: prettyVersion(f), folders, updated_at: stamp() });
           saveState(state);
           status.set(pid, "done");
@@ -185,6 +194,11 @@ export async function cmdUpdate(args: string[]): Promise<number> {
     }
     for (const l of todoLines(0, true)) live.log(l);
     live.log();
+    if (sealSoulstone(stone, changed)) {
+      live.log(`${bullet("ok")} ${BOLD}Soulstone${RESET}(${changed.length} addon${changed.length !== 1 ? "s" : ""} + WTF · ${fmtSize(stone.manifest.wtfBytes)})`);
+      live.log(result(rich("applied · `wu restore` brings back how it was before this update")));
+      live.log();
+    }
   }
 
   saveState(state);

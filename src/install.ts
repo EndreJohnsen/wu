@@ -163,7 +163,8 @@ function swapIn(staging: string, folders: string[], oldFolders: string[], backup
   }
 }
 
-export async function install(entry: { folders?: string[] }, f: CfFile, progress: Progress, workdir: string): Promise<string[]> {
+/** `keep(backupDir)` gets the old folders after a successful swap (the soulstone moves them in). */
+export async function install(entry: { folders?: string[] }, f: CfFile, progress: Progress, workdir: string, keep?: (backup: string) => void): Promise<string[]> {
   mkdirSync(workdir, { recursive: true });
   const tmp = mkdtempSync(join(workdir, "job-"));
   try {
@@ -176,6 +177,9 @@ export async function install(entry: { folders?: string[] }, f: CfFile, progress
     mkdirSync(backup);
     progress.phase = "installing";
     swapIn(staging, folders, entry.folders ?? [], backup);
+    try {
+      keep?.(backup);
+    } catch {} // a backup hiccup must never undo a good install
     return folders;
   } finally {
     rmTree(tmp);

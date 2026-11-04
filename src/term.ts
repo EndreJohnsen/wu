@@ -298,8 +298,11 @@ export class Spinner {
   private casts: [string, RGB, number][];
   private cycle: number;
 
-  constructor() {
-    this.casts = shuffle(CASTS).map(([name, school]) => [name, SCHOOLS[school]!, 2.0 + Math.random() * 1.6]);
+  /** `fixed`: play these casts in order ([name, school, seconds]) instead of random ones. */
+  constructor(fixed?: [string, string, number][]) {
+    this.casts = fixed
+      ? fixed.map(([name, school, dur]) => [name, SCHOOLS[school] ?? SCHOOLS.gold!, dur])
+      : shuffle(CASTS).map(([name, school]) => [name, SCHOOLS[school]!, 2.0 + Math.random() * 1.6]);
     this.cycle = this.casts.reduce((s, c) => s + c[2], 0);
   }
 
