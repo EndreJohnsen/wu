@@ -3,7 +3,7 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { banner, finale } from "../engram";
 import {
-  CONFIG_FILE, WOW_DIR, detectForever, envOverride, isDir, isFile, loadState, resolveWowInput, saveConfig, scanDisks,
+  CONFIG_FILE, WOW_DIR, addonsDir, detectForever, ensureAddonsDir, envOverride, isDir, isFile, loadState, resolveWowInput, saveConfig, scanDisks,
   setWowDir, shortPath, tilde, type ScanProgress,
 } from "../paths";
 import { BOLD, CLAUDE, GRAY, RED, RESET, Spinner, TTY, YELLOW, Keys, bullet, choose, fmtDur, live, println, promptBox, result, rich } from "../term";
@@ -90,7 +90,7 @@ export async function cmdSetup(args: string[]): Promise<number> {
     if (found.length) {
       const options = [
         ...found.map((p) => {
-          const bits = [`${addonCount(p)} addons`];
+          const bits = [isDir(join(p, "Interface", "AddOns")) ? `${addonCount(p)} addons` : "no AddOns folder yet"];
           if (p === WOW_DIR) bits.push("current");
           if (!isFile(join(p, "Wow.exe"))) bits.push("no Wow.exe yet");
           return { label: tilde(p), hint: bits.join(" · ") };
@@ -114,11 +114,17 @@ export async function cmdSetup(args: string[]): Promise<number> {
   saveConfig(path);
   setWowDir(path);
   const have = addonCount(path);
+  const hasAddOns = isDir(addonsDir());
   println(`${bullet("ok")} ${BOLD}Saved${RESET}(${tilde(CONFIG_FILE)})`);
   println(result(`WoW Forever: ${tilde(path)}`));
-  println(`     ${GRAY}${have} addon folder${have !== 1 ? "s" : ""} in Interface/AddOns${RESET}`);
+  if (hasAddOns) println(`     ${GRAY}${have} addon folder${have !== 1 ? "s" : ""} in Interface/AddOns${RESET}`);
   if (envOverride()) println(`     ${YELLOW}Note: WU_DIR is set in your environment and overrides this.${RESET}`);
   println();
+  if (!hasAddOns && !(await ensureAddonsDir())) {
+    println();
+    println(rich("The path is saved. wu asks again the next time you install something."));
+    return 0;
+  }
   await finale(
     "All set · run wu to install or update your addons there",
     rich(have ? "All set · `wu import` adopts what's there, `wu` keeps it fresh" : "All set · try `wu search bags` to add your first addon", CLAUDE),

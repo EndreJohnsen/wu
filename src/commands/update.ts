@@ -4,7 +4,7 @@ import { type CfFile, type Project, fetchProject, pickFile, prettyVersion } from
 import { banner, finale } from "../engram";
 import { install, removeIfEmpty } from "../install";
 import { type StoneAddon, castSoulstone, keepInStone, sealSoulstone } from "../soulstone";
-import { type Entry, GAME_VERSION, WOW_DIR, acquireLock, addonsDir, isDir, loadState, saveState, tilde, wowRunning } from "../paths";
+import { type Entry, GAME_VERSION, WOW_DIR, acquireLock, addonsDir, ensureAddonsDir, isDir, loadState, saveState, tilde, wowRunning } from "../paths";
 import {
   BOLD, CLAUDE, DONE_VERBS, GRAY, GREEN, IDLE_VERBS, RED, RESET, STRIKE, Spinner, WHITE, YELLOW, bullet, choice, fmtDur,
   fmtSize, hlCmd, lead, live, println, result, rich, stamp,
@@ -92,6 +92,7 @@ export async function cmdUpdate(args: string[]): Promise<number> {
     live.log(result(rich("Run `wu setup` and let it search, or paste where it lives now.", RED), RED));
     return 1;
   }
+  if (!checkOnly && !(await ensureAddonsDir())) return 1;
   if (wowRunning() && !checkOnly) {
     live.log(`${bullet("warn")} WoW is running`);
     live.log(result(rich("Files update on disk now; type `/reload` in game (or relog) to load them.", YELLOW), YELLOW));

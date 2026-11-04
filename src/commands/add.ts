@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { fetchProject, pickFile, prettyVersion } from "../curseforge";
 import { finale } from "../engram";
 import { install, removeIfEmpty } from "../install";
-import { type Entry, WOW_DIR, acquireLock, isDir, loadState, saveState, tilde } from "../paths";
+import { type Entry, WOW_DIR, acquireLock, ensureAddonsDir, isDir, loadState, saveState, tilde } from "../paths";
 import { BOLD, CLAUDE, GRAY, RED, RESET, Spinner, bullet, fmtSize, hlCmd, lead, live, println, result, rich, stamp } from "../term";
 
 export async function cmdAdd(args: string[]): Promise<number> {
@@ -25,6 +25,7 @@ export async function installProject(ref: string, label: string): Promise<number
     println(result(rich("Run `wu setup` first.", RED), RED));
     return 1;
   }
+  if (!(await ensureAddonsDir())) return 1;
   let spin = new Spinner();
   live.start((f) => [`${bullet("run", f)} ${BOLD}Lookup${RESET}(${label})`, "", spin.line(f)]);
   let data;

@@ -7,21 +7,24 @@ install addons from CurseForge.
 
 ## Install
 
-wu runs on [Bun](https://bun.com). These install the official Bun first if you don't have it,
+wu runs on [Bun](https://bun.com). Each pair of lines below installs the official Bun first,
 then wu.
+
+**Windows** (PowerShell or Command Prompt, either works):
+
+```powershell
+powershell -c "irm bun.sh/install.ps1|iex"
+powershell -c "& (Convert-Path ~\.bun\bin\bun.exe) add -g github:EndreJohnsen/wu"
+```
+
+The first line is Bun's own installer. The second calls Bun by its full path, because the open
+window doesn't know about Bun yet. Afterwards, **open a new terminal window** so it finds `wu`.
 
 **Linux / macOS** (any terminal):
 
 ```sh
 command -v bun >/dev/null || curl -fsSL https://bun.com/install | bash
 export PATH="${BUN_INSTALL:-$HOME/.bun}/bin:$PATH" && bun add -g github:EndreJohnsen/wu
-```
-
-**Windows** (PowerShell, ideally in Windows Terminal):
-
-```powershell
-if (-not (Get-Command bun -ErrorAction SilentlyContinue)) { irm bun.com/install.ps1 | iex }
-$env:Path = "$HOME\.bun\bin;$env:Path"; bun add -g github:EndreJohnsen/wu
 ```
 
 Already have Bun? Just `bun add -g github:EndreJohnsen/wu`. Then:
@@ -50,7 +53,7 @@ it starts. `wu update` does it any time.
 | `wu share` | copy a code with your addon list to the clipboard |
 | `wu share_wtf` | the same, plus your addons' settings |
 | `wu restore` | bring addons and/or WTF settings back from a Soulstone (taken before every update) |
-| `wu setup [path]` | find WoW Forever by itself, or take a path: Linux or Windows paths (`%ProgramFiles(x86)%` works), `file://` links, `Wow.exe` |
+| `wu setup [path]` | find WoW Forever by itself, or take a path: Linux or Windows paths (`%ProgramFiles(x86)%` works), `file://` links, `Wow.exe`. Offers to create `Interface/AddOns` if a fresh install doesn't have it yet |
 | `wu update` | update wu itself |
 | `wu --version` | print the installed version |
 | `wu help` | the screen above |

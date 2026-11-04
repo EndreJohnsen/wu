@@ -2,7 +2,7 @@
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync, writeSync } from "node:fs";
 import { homedir, userInfo } from "node:os";
 import { dirname, join, sep } from "node:path";
-import { RED, RESET, println, rich } from "./term";
+import { BOLD, RED, RESET, bullet, choose, println, result, rich } from "./term";
 
 export const GAME_VERSION = "1.60.1"; // CurseForge's game-version tag for WoW Forever
 export const IS_WIN = process.platform === "win32";
@@ -68,6 +68,38 @@ export let WOW_DIR = configuredWowDir();
 export const addonsDir = () => join(WOW_DIR, "Interface", "AddOns");
 export function setWowDir(p: string): void {
   WOW_DIR = p;
+}
+
+/**
+ * Interface/AddOns inside WoW Forever, created if the user says so (a fresh install may not have
+ * it). False if it's missing and stays missing. A missing WoW Forever folder is the caller's to report.
+ */
+export async function ensureAddonsDir(): Promise<boolean> {
+  const dir = addonsDir();
+  if (isDir(dir)) return true;
+  if (!isDir(WOW_DIR)) return false;
+  const rel = join("Interface", "AddOns");
+  println(`${bullet("warn")} ${BOLD}AddOns${RESET}(${tilde(dir)})`);
+  println(result(`There's no ${rel} folder yet, and that's where WoW loads addons from.`));
+  println();
+  const pick = await choose(`${bullet("ok")} ${BOLD}Create it?${RESET}`, [
+    { label: `Create ${rel}`, hint: "an empty folder in WoW Forever, nothing else changes" },
+    { label: "Not now", hint: "" },
+  ]);
+  if (pick !== 0) {
+    println(result(`Skipped. wu needs ${rel} before it can install addons.`));
+    return false;
+  }
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch (e: any) {
+    println(`${bullet("err")} ${BOLD}Create${RESET}(${rel})`);
+    println(result(`Couldn't create it: ${e?.code ?? e?.message ?? e}`, RED));
+    return false;
+  }
+  println(`${bullet("ok")} ${BOLD}Created${RESET}(${rel})`);
+  println();
+  return true;
 }
 
 export function writeJsonAtomic(path: string, data: unknown): void {

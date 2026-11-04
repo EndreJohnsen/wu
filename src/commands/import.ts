@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CF_API, cfMod, foreverFile, getJson, prettyVersion, type ForeverFile } from "../curseforge";
 import { finale } from "../engram";
-import { GAME_VERSION, acquireLock, addonsDir, isDir, loadState, saveState, tilde } from "../paths";
+import { GAME_VERSION, WOW_DIR, acquireLock, addonsDir, ensureAddonsDir, isDir, loadState, saveState, tilde } from "../paths";
 import {
   BOLD, CLAUDE, COLOR, GRAY, GREEN, RED, RESET, Spinner, TTY, WHITE, Keys, bullet, dfit, fmtCount, lead, live, plain,
   println, result, rich, stamp, termRows,
@@ -147,10 +147,16 @@ type Row = { main: string; meta: Meta; folders: string[]; cands: Cand[]; ci: num
 export async function cmdImport(args: string[]): Promise<number> {
   const auto = args.includes("--yes") || args.includes("-y");
   const state = loadState();
-  if (!isDir(addonsDir())) {
-    println(`${bullet("err")} Can't find ${tilde(addonsDir())}`);
+  if (!isDir(WOW_DIR)) {
+    println(`${bullet("err")} Can't find WoW Forever at ${tilde(WOW_DIR)}`);
     println(result(rich("Run `wu setup` first.", RED), RED));
     return 1;
+  }
+  if (!isDir(addonsDir())) {
+    if (!(await ensureAddonsDir())) return 1;
+    println(`${bullet("ok")} ${BOLD}Import${RESET}`);
+    println(result(rich("The AddOns folder is new and empty, so there's nothing to import. `wu search` finds addons to install.")));
+    return 0;
   }
   const owned = new Set(Object.values(state.addons).flatMap((a) => a.folders ?? []));
   const found = new Map<string, Meta>();

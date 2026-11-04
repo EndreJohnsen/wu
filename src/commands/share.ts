@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { deflateRawSync, inflateRawSync } from "node:zlib";
 import { copyToClipboard } from "../clipboard";
 import { finale } from "../engram";
-import { WOW_DIR, loadState, saveState, tilde, wowRunning } from "../paths";
+import { WOW_DIR, ensureAddonsDir, isDir, loadState, saveState, tilde, wowRunning } from "../paths";
 import {
   BOLD, CLAUDE, GRAY, GREEN, RED, RESET, TTY, WHITE, YELLOW, Keys, bullet, choose, dfit, fmtSize, lead, live,
   println, result, rich, stamp, termRows,
@@ -237,6 +237,7 @@ export async function applyShare(code: string, args: string[]): Promise<number> 
     return 0;
   }
 
+  if (isDir(WOW_DIR) && !(await ensureAddonsDir())) return 1; // no WoW folder at all: the update reports it
   for (const a of fresh) state.addons[a.id] = { title: a.t, file_id: null, version: null, folders: [] };
   saveState(state);
   const rc = fresh.length || !doSettings ? await cmdUpdate([]) : 0;
