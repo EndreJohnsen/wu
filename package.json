@@ -1,0 +1,26 @@
+{
+  "name": "@endrejohnsen/wu",
+  "version": "1.0.0",
+  "description": "Keeps your WoW Forever addons fresh: update, search, import and install from CurseForge, with a spinning engram.",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "EndreJohnsen",
+  "bin": {
+    "wu": "bin/wu"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
+  "os": [
+    "linux",
+    "darwin"
+  ],
+  "keywords": [
+    "wow",
+    "world-of-warcraft",
+    "addons",
+    "curseforge",
+    "cli"
+  ]
+}
