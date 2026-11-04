@@ -119,12 +119,13 @@ while it was running. v1.4.2 and newer avoid this.) Close any window running wu,
 one line into PowerShell:
 
 ```powershell
-Remove-Item ~\.bun\bin\wu.exe -Force; Remove-Item ~\.bun\bin\wu -Force -ErrorAction Ignore; bun remove -g @endrejohnsen/wu; bun add -g github:EndreJohnsen/wu; wu --version
+Remove-Item ~/.bun/bin/wu.exe -Force; Remove-Item ~/.bun/bin/wu -Force -ErrorAction Ignore; bun remove -g @endrejohnsen/wu; bun add -g github:EndreJohnsen/wu; wu --version
 ```
 
 The first part matters most: until that leftover `wu.exe` is gone, every `bun add` fails with
 `EEXIST`, `--force` included. (wu isn't on npm, so `bun add -g @endrejohnsen/wu` gives a 404;
-always use the `github:` form.)
+always use the `github:` form.) Sending it through Discord or another chat? Put it in a code
+block, or the chat eats the `@endrejohnsen` (it becomes a mention) and any backslashes.
 
 Your addons and settings aren't touched; they live in WoW's folder and `%LOCALAPPDATA%\wu`.
 
