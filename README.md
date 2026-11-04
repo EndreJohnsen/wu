@@ -45,7 +45,7 @@ it starts. `wu update` does it any time.
 | `wu list` | tracked addons and their installed versions |
 | `wu search [words]` | top 10 WoW Forever addons for a search; `1`–`9`/`0` installs, `tab` switches most downloads ⇄ most recent, `←→` pages |
 | `wu add <addon>` | install and track one addon (CurseForge link, slug or project id) |
-| `wu add <code>` | install everything in a share code (plain `wu add` reads it from the clipboard) |
+| `wu add <code>` | install everything in a share code (plain `wu add` picks it up from the clipboard, or asks you to paste it) |
 | `wu import [--yes]` | match the addons already in `Interface/AddOns` to CurseForge, then accept (`y`) or deny (`n`) each match |
 | `wu share` | copy a code with your addon list to the clipboard |
 | `wu share_wtf` | the same, plus your addons' settings |
@@ -64,6 +64,18 @@ filesystem supports it, so it's near free on btrfs) plus the old versions of eve
 replaces (moved, not copied, so it's instant). The five newest are kept in
 `Interface/.wu/soulstones`. `wu restore` picks one and brings back the addons, the settings, or
 both; it casts a fresh Soulstone first, so a restore can be undone too.
+
+## Sharing
+
+`wu share` puts a code on your clipboard; your friend runs plain `wu add`. Nothing extra needs
+installing anywhere:
+
+- **Windows / macOS:** wu uses the clipboard tools built into the system.
+- **Linux:** wu reads the clipboard with `wl-clipboard`, `xclip` or `xsel` if one is installed,
+  or by itself on X11 sessions. On Wayland without those tools the desktop doesn't let terminal
+  programs read the clipboard in the background, so `wu add` opens a box and you paste the code
+  (Ctrl+Shift+V). Copying falls back to asking the terminal, and the code is printed too in case
+  the terminal ignores it.
 
 ## Sharing settings safely
 

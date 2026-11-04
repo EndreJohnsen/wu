@@ -1,6 +1,6 @@
 {
   "name": "@endrejohnsen/wu",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "Terminal addon manager for WoW Forever: update, search, import, share and install addons from CurseForge. Runs on Bun.",
   "private": true,
   "license": "UNLICENSED",

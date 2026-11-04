@@ -4,11 +4,12 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deflateRawSync, inflateRawSync } from "node:zlib";
+import { copyToClipboard } from "../clipboard";
 import { finale } from "../engram";
 import { WOW_DIR, loadState, saveState, tilde, wowRunning } from "../paths";
 import {
   BOLD, CLAUDE, GRAY, GREEN, RED, RESET, TTY, WHITE, YELLOW, Keys, bullet, choose, dfit, fmtSize, lead, live,
-  println, result, rich, stamp, termRows, write,
+  println, result, rich, stamp, termRows,
 } from "../term";
 import { VERSION } from "../version";
 import { cmdUpdate } from "./update";
@@ -33,49 +34,6 @@ function decode(code: string): ShareData {
   const data = JSON.parse(inflateRawSync(Buffer.from(body, "base64url")).toString("utf8"));
   if (data?.v !== 1 || !Array.isArray(data.addons)) throw new Error("not a wu share code");
   return data;
-}
-
-// ── clipboard ────────────────────────────────────────────────────────────────
-
-async function tryTools(tools: string[][], input?: string): Promise<{ tool: string; out: string } | null> {
-  for (const t of tools) {
-    if (!Bun.which(t[0]!)) continue;
-    try {
-      const p = Bun.spawn(t, { stdin: input !== undefined ? "pipe" : "ignore", stdout: "pipe", stderr: "ignore" });
-      if (input !== undefined && p.stdin) {
-        p.stdin.write(input);
-        await p.stdin.end();
-      }
-      const out = input === undefined ? await new Response(p.stdout).text() : "";
-      if ((await p.exited) === 0) return { tool: t[0]!, out };
-    } catch {}
-  }
-  return null;
-}
-
-function clipTools(dir: "copy" | "paste"): string[][] {
-  const t: string[][] = [];
-  if (process.env.WAYLAND_DISPLAY) t.push(dir === "copy" ? ["wl-copy"] : ["wl-paste", "--no-newline"]);
-  if (process.env.DISPLAY)
-    t.push(...(dir === "copy" ? [["xclip", "-selection", "clipboard"], ["xsel", "--clipboard", "--input"]] : [["xclip", "-selection", "clipboard", "-o"], ["xsel", "--clipboard", "--output"]]));
-  if (process.platform === "darwin") t.push(dir === "copy" ? ["pbcopy"] : ["pbpaste"]);
-  if (process.platform === "win32")
-    t.push(...(dir === "copy" ? [["clip"]] : [["powershell", "-NoProfile", "-Command", "Get-Clipboard"], ["pwsh", "-NoProfile", "-Command", "Get-Clipboard"]]));
-  return t;
-}
-
-async function copyToClipboard(text: string): Promise<string | null> {
-  const r = await tryTools(clipTools("copy"), text);
-  if (r) return r.tool;
-  if (TTY && text.length < 90000) {
-    write(`\x1b]52;c;${Buffer.from(text).toString("base64")}\x07`); // ask the terminal itself (OSC 52)
-    return "terminal";
-  }
-  return null;
-}
-
-export async function readClipboard(): Promise<string> {
-  return (await tryTools(clipTools("paste")))?.out.trim() ?? "";
 }
 
 // ── SavedVariables ───────────────────────────────────────────────────────────
@@ -184,12 +142,14 @@ export async function cmdShare(withSettings: boolean): Promise<number> {
   const tool = await copyToClipboard(code);
   const nSettings = Object.keys(data.wtf ?? {}).length;
   println(`${bullet(tool ? "ok" : "warn")} ${BOLD}Share${RESET}(${addons.length} addons${withSettings ? ` + settings for ${nSettings}` : ""})`);
-  if (tool) println(result(`Copied to your clipboard${tool === "terminal" ? " (through the terminal)" : ` (${tool})`} · ${code.length.toLocaleString()} characters`));
+  const sure = tool !== null && tool !== "terminal"; // OSC 52 can be ignored silently by some terminals
+  if (sure) println(result(`Copied to your clipboard (${tool}) · ${code.length.toLocaleString()} characters`));
+  else if (tool === "terminal") println(result("Asked your terminal to copy it. If pasting comes up empty, copy the code below:"));
   else {
     const tools = process.platform === "win32" ? "clip" : process.platform === "darwin" ? "pbcopy" : "wl-copy, xclip or xsel";
     println(result(`Couldn't reach the clipboard (${tools}). Copy the code below by hand:`, YELLOW));
   }
-  println(`     ${GRAY}${tool && code.length > 90 ? code.slice(0, 40) + "…" + code.slice(-20) : code}${RESET}`);
+  println(`     ${GRAY}${sure && code.length > 90 ? code.slice(0, 40) + "…" + code.slice(-20) : code}${RESET}`);
   println();
   println(`  ${rich("Your friend runs `wu add` (it reads the code from their clipboard), or `wu add <code>`.")}`);
   println();

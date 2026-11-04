@@ -7,10 +7,11 @@ import { cmdImport } from "./commands/import";
 import { cmdRestore } from "./commands/restore";
 import { cmdSearch } from "./commands/search";
 import { cmdSetup } from "./commands/setup";
-import { applyShare, cmdShare, isShareCode, readClipboard } from "./commands/share";
+import { applyShare, cmdShare, isShareCode } from "./commands/share";
+import { readClipboard } from "./clipboard";
 import { cmdUpdate } from "./commands/update";
 import { autodetectWowDir } from "./paths";
-import { RED, RESET, TTY, hlCmd, interrupt, println, rich } from "./term";
+import { BOLD, RED, RESET, TTY, bullet, hlCmd, interrupt, println, promptBox, result, rich } from "./term";
 import { VERSION, bootPrompt, checkForUpdate, selfUpdate } from "./version";
 
 const HELP = ["-h", "--help", "help", "-help", "?"];
@@ -45,8 +46,18 @@ async function main(argv: string[]): Promise<number> {
       const code = rest.find(isShareCode);
       if (code) return applyShare(code, argv);
       if (!rest.length) {
+        // a friend's share code on the clipboard? use it; otherwise ask for one (or an addon)
         const clip = await readClipboard();
         if (isShareCode(clip)) return applyShare(clip, argv);
+        if (TTY && process.stdin.isTTY) {
+          println(`${bullet("ok")} ${BOLD}Add${RESET}`);
+          println(result("No share code on your clipboard. Paste one, or an addon name or CurseForge link:"));
+          println();
+          const typed = (await promptBox("e.g. wu1.… from a friend, questie, or https://www.curseforge.com/wow/addons/…")).trim();
+          if (!typed) return 0;
+          if (isShareCode(typed)) return applyShare(typed, argv);
+          return cmdAdd([typed]);
+        }
       }
       return cmdAdd(rest);
     }
