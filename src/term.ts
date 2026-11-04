@@ -45,9 +45,22 @@ const SUBCOMMANDS = new Set(["list", "search", "find", "add", "setup", "help", "
 const ANSI_G = /\x1b\[[0-9;?]*[A-Za-z]/g;
 const ANSI_Y = /\x1b\[[0-9;?]*[A-Za-z]/y;
 
+// The old Windows console (conhost, not Windows Terminal) often draws with a bitmap font that only
+// has its code page's characters (437/850/865…), so ● ⎿ ❯ ✻ ✓ come out as "?". There, swap each one
+// for a look-alike that all those code pages share. One character for one, so widths don't change.
+const OLD_CONSOLE = process.platform === "win32" && !process.env.WT_SESSION && !process.env.TERM_PROGRAM &&
+  !process.env.ConEmuANSI && !process.env.TERM && !process.env.WU_UNICODE;
+const SAFE: Record<string, string> = {
+  "●": "■", "⎿": "└", "❯": ">", "✻": "*", "✓": "+", "✗": "x", "…": ".", "–": "-", "⇄": "/",
+  "○": "·", "◔": "░", "◑": "▒", "◕": "▓", "▏": "│", "▕": "│", "▎": "░", "▍": "▒", "▌": "▒", "▋": "▓", "▊": "▓", "▉": "▓",
+  "▰": "█", "▱": "░", "☐": "·", "☒": "■", "╭": "┌", "╮": "┐", "╰": "└", "╯": "┘",
+};
+const SAFE_RE = new RegExp(`[${Object.keys(SAFE).join("")}]`, "g");
+const safe = (s: string) => (OLD_CONSOLE ? s.replace(SAFE_RE, (c) => SAFE[c]!) : s);
+
 export function write(s: string): void {
   try {
-    writeSync(1, s);
+    writeSync(1, safe(s));
   } catch (e: any) {
     if (e?.code === "EPIPE") process.exit(0); // e.g. `wu search x | head`
     if (e?.code !== "EAGAIN") throw e;

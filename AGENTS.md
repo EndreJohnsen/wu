@@ -66,6 +66,14 @@ Keep paths portable: build them with `node:path` `join`, split with `/[\\/]/`, a
   first commit, and `bun remove -g` leaves the lock entry behind. `selfUpdate()` in
   `src/version.ts` removes only the lines mentioning `@endrejohnsen/wu` from
   `~/.bun/install/global/bun.lock`, then adds the new tag. Don't touch other packages there.
+- **On Windows, self-update renames the running `wu.exe` aside first** (`parkShim()` in
+  `src/version.ts`). Bun's `wu.exe` shim waits for wu, so it's locked: `bun remove` would delete
+  `wu.bunx` but not `wu.exe`, and Bun refuses (`EEXIST`) to link over an `.exe` that has no `.bunx`.
+  A running `.exe` can be renamed, just not deleted. Leftover `wu.exe.old-*` files are removed on
+  the next update.
+- **Old Windows consoles get look-alike symbols** (`SAFE` in `src/term.ts`): outside Windows
+  Terminal, conhost's bitmap fonts print `?` for `●`, `⎿`, `❯` and friends. New symbols in the UI
+  need an entry there (one character for one).
 - **Version check uses the GitHub tags API**, with `raw.githubusercontent.com` only as a
   fallback; the raw CDN serves stale files for minutes after a push.
 - **CurseForge's own site blocks scripts.** File lists come from `api.cfwidget.com`, search from

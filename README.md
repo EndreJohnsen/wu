@@ -111,6 +111,20 @@ is running, because WoW rewrites those files when you log out.
 Works on Linux, macOS and Windows. On Windows, use Windows Terminal (the default on Windows 11).
 If a console ever shows garbled output, `WU_PLAIN=1` turns off the animations and colors.
 
+## If wu stops starting on Windows
+
+`wu update` from v1.4.1 or older can leave Windows with a broken `wu` command: it says
+"corrupted node_modules", and `bun add` fails with `EEXIST`. (Bun couldn't replace `wu.exe`
+while it was running. v1.4.2 and newer avoid this.) Close any window running wu, then in PowerShell:
+
+```powershell
+Remove-Item ~\.bun\bin\wu.exe, ~\.bun\bin\wu -ErrorAction SilentlyContinue
+bun remove -g @endrejohnsen/wu
+bun add -g github:EndreJohnsen/wu
+```
+
+Your addons and settings aren't touched; they live in WoW's folder and `%LOCALAPPDATA%\wu`.
+
 ## Releasing
 
 Bump `version` in `package.json`, commit, then tag it: `git tag v<version> && git push --tags`.

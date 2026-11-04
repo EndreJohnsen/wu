@@ -1,10 +1,12 @@
 // wu's own version: the update check, the Noctalia "UPDATE AVAILABLE" badge, the boot prompt,
 // and `wu update` (self-update through bun).
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import pkg from "../package.json";
-import { STATE_DIR, tilde, writeJsonAtomic } from "./paths";
+import { IS_WIN, STATE_DIR, tilde, writeJsonAtomic } from "./paths";
 import {
   BOLD, COLOR, GRAY, GREEN, NOCT_PRIMARY, NOCT_SURFACE, NOCT_TERTIARY, RED, RESET, Spinner, TTY, bg, bullet, choose,
   hlCmd, live, println, result, rgb, rich,
@@ -180,6 +182,7 @@ export async function selfUpdate(target?: string | null): Promise<boolean> {
   const backup = mkdtempSync(join(tmpdir(), "wu-backup-"));
   cpSync(where.pkgRoot, backup, { recursive: true });
   const binDir = (await run([bun, "pm", "bin", "-g"])).out.split("\n").pop() || join(dirname(dirname(where.globalDir)), "bin");
+  const shim = IS_WIN ? parkShim(binDir) : null;
 
   const spin = new Spinner();
   const step = { text: "removing the old version" };
@@ -221,14 +224,49 @@ export async function selfUpdate(target?: string | null): Promise<boolean> {
     rmSync(where.pkgRoot, { recursive: true, force: true });
     mkdirSync(dirname(where.pkgRoot), { recursive: true });
     cpSync(backup, where.pkgRoot, { recursive: true });
-    const link = join(binDir, "wu");
-    try {
-      if (!existsSync(link)) symlinkSync(relative(binDir, join(where.pkgRoot, pkg.bin.wu)), link);
-    } catch {}
+    if (shim) shim.restore();
+    else {
+      const link = join(binDir, "wu");
+      try {
+        if (!existsSync(link)) symlinkSync(relative(binDir, join(where.pkgRoot, pkg.bin.wu)), link);
+      } catch {}
+    }
   }
   rmSync(backup, { recursive: true, force: true });
   println(`${bullet("err")} ${BOLD}Update${RESET}(wu v${VERSION} → v${target})`);
   println(result(`${why || "bun didn't install it"} · kept v${VERSION}`, RED));
-  println(`     ${rich(`Try by hand: \`bun add -g github:${REPO}\``)}`);
+  // remove first: bun keeps a GitHub install pinned to its old commit, even when given a new tag
+  println(`     ${rich(`Try by hand: \`bun remove -g ${PKG_NAME}; bun add -g github:${REPO}#v${target}\``)}`);
   return false;
+}
+
+/**
+ * Windows: the wu.exe shim waits for this process, so it's locked while wu runs. `bun remove` then
+ * deletes wu.bunx but not wu.exe, and bun treats an .exe without its .bunx as some other program:
+ * every later `bun add` fails with EEXIST and the leftover wu.exe can't start wu. A running .exe can
+ * be renamed though, so move it aside before bun touches anything, and put it back if bun fails.
+ */
+function parkShim(binDir: string): { restore(): void } | null {
+  const exe = join(binDir, "wu.exe");
+  const bunx = join(binDir, "wu.bunx");
+  try {
+    for (const f of readdirSync(binDir)) if (f.startsWith("wu.exe.old-")) rmSync(join(binDir, f), { force: true }); // earlier updates'
+  } catch {}
+  if (!existsSync(exe)) return null;
+  const parked = `${exe}.old-${process.pid}`;
+  let saved: Buffer | null = null;
+  try {
+    saved = readFileSync(bunx);
+    renameSync(exe, parked);
+  } catch {
+    return null;
+  }
+  return {
+    restore() {
+      try {
+        if (!existsSync(exe)) renameSync(parked, exe);
+        if (!existsSync(bunx)) writeFileSync(bunx, saved!);
+      } catch {}
+    },
+  };
 }
