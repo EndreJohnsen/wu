@@ -12,6 +12,7 @@ export type CfFile = {
   versions?: string[];
   filesize?: number;
   uploaded_at?: string;
+  deps?: number[]; // project ids CurseForge marks as required (QuestieDB for Questie …), when known
 };
 export type Project = { id: number; title?: string; files: CfFile[] };
 
@@ -25,8 +26,45 @@ export async function getJson(url: string, timeoutMs = 20000): Promise<{ status:
   return { status: res.status, data };
 }
 
-/** ref: numeric project id or "wow/addons/<slug>". */
+/**
+ * ref: numeric project id or "wow/addons/<slug>". cfwidget's file list can lag a release by hours,
+ * so the newest files (with their required dependencies) are topped up from curse.tools.
+ */
 export async function fetchProject(ref: string): Promise<Project> {
+  const data = await fetchWidget(ref);
+  await topUp(data).catch(() => {}); // curse.tools down: cfwidget alone still works
+  return data;
+}
+
+const CHANNEL: Record<number, string> = { 1: "release", 2: "beta", 3: "alpha" };
+const required = (deps: any[] | undefined) => (deps ?? []).filter((d) => d.relationType === 3).map((d) => Number(d.modId));
+
+async function topUp(p: Project): Promise<void> {
+  const mod = await cfMod(p.id, 10000);
+  p.title ||= mod.name;
+  const have = new Map(p.files.map((f) => [Number(f.id), f]));
+  for (const lf of mod.latestFiles ?? []) {
+    const known = have.get(Number(lf.id));
+    if (known) known.deps = required(lf.dependencies);
+    else
+      p.files.push({
+        id: lf.id, name: lf.fileName, display: lf.displayName, type: CHANNEL[lf.releaseType] ?? "release",
+        versions: lf.gameVersions ?? [], filesize: lf.fileLength, uploaded_at: lf.fileDate, deps: required(lf.dependencies),
+      });
+  }
+}
+
+/** Required dependencies of one file: from the project data if it had them, else asked for. */
+export async function requiredDeps(projectId: number | string, f: CfFile): Promise<number[]> {
+  if (f.deps) return f.deps;
+  try {
+    const { status, data } = await getJson(`${CF_API}/mods/${projectId}/files/${f.id}`, 10000);
+    if (status === 200) return (f.deps = required(data.data?.dependencies));
+  } catch {}
+  return [];
+}
+
+async function fetchWidget(ref: string): Promise<Project> {
   const url = `https://api.cfwidget.com/${ref}`;
   let last = "";
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -74,8 +112,8 @@ export async function searchCf(query: string, sortField: number, page: number, s
   return { items: data.data ?? [], total: Number(data.pagination?.totalCount ?? 0) };
 }
 
-export async function cfMod(id: string | number): Promise<any> {
-  const { status, data } = await getJson(`${CF_API}/mods/${id}`);
+export async function cfMod(id: string | number, timeoutMs?: number): Promise<any> {
+  const { status, data } = await getJson(`${CF_API}/mods/${id}`, timeoutMs);
   if (status !== 200 || !data.data) throw new Error(`HTTP ${status}`);
   return data.data;
 }

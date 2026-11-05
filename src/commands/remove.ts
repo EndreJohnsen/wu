@@ -173,6 +173,9 @@ export async function cmdRemove(args: string[]): Promise<number> {
   gone.forEach((g, i) => println(`${lead(i)}${GREEN}✓${RESET} ${g.title} ${GRAY}${g.from}${RESET}`));
   println(`     ${GRAY}Their settings in WTF stay. ${RESET}${rich("`wu restore` brings the addons back.")}`);
   if (wowRunning()) println(`     ${YELLOW}WoW is running: they stay loaded until you /reload or relog.${RESET}`);
+  // a required dependency of something still tracked comes straight back on the next `wu`
+  for (const r of picked.filter((p) => p.a.needed_by && rows.some((o) => !o.on && o.a.title === p.a.needed_by)))
+    println(`     ${YELLOW}${r.a.needed_by} requires ${r.a.title}, so the next wu puts it back. Remove ${r.a.needed_by} too to keep it gone.${RESET}`);
   println();
   const left = Object.keys(state.addons).length;
   const who = picked.length === 1 ? picked[0]!.a.title : `${picked.length} addons`;

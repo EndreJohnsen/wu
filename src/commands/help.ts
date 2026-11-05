@@ -30,6 +30,7 @@ const TIPS = [
   "Every real update and remove casts a Soulstone first (old addons + WTF), the 5 newest are kept",
   "Shared settings land in your own WTF account folder, old files are backed up first",
   `Only WoW Forever builds (${GAME_VERSION}) are installed, newest stable first`,
+  "Addons CurseForge marks as required (QuestieDB for Questie) come along by themselves",
   `Settings: \`${tilde(CONFIG_FILE)}\` · state: \`${tilde(STATE_FILE)}\``,
 ];
 

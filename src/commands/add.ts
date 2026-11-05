@@ -1,10 +1,11 @@
 // `wu add <slug|url|id>` and the shared install flow (used by search too). Also `wu list`.
 import { join } from "node:path";
-import { fetchProject, pickFile, prettyVersion } from "../curseforge";
+import { type CfFile, fetchProject, pickFile, prettyVersion } from "../curseforge";
+import { missingDeps } from "../deps";
 import { finale } from "../engram";
 import { install, removeIfEmpty } from "../install";
 import { type Entry, WOW_DIR, acquireLock, ensureAddonsDir, isDir, loadState, saveState, tilde } from "../paths";
-import { BOLD, CLAUDE, GRAY, RED, RESET, Spinner, bullet, fmtSize, hlCmd, lead, live, println, result, rich, stamp } from "../term";
+import { BOLD, CLAUDE, GRAY, RED, RESET, Spinner, YELLOW, bullet, fmtSize, hlCmd, lead, live, println, result, rich, stamp } from "../term";
 
 export async function cmdAdd(args: string[]): Promise<number> {
   if (!args.length) {
@@ -26,7 +27,7 @@ export async function installProject(ref: string, label: string): Promise<number
     return 1;
   }
   if (!(await ensureAddonsDir())) return 1;
-  let spin = new Spinner();
+  const spin = new Spinner();
   live.start((f) => [`${bullet("run", f)} ${BOLD}Lookup${RESET}(${label})`, "", spin.line(f)]);
   let data;
   try {
@@ -51,11 +52,35 @@ export async function installProject(ref: string, label: string): Promise<number
   }
   println(result(`${title} ${prettyVersion(f)} · ${fmtSize(Number(f.filesize) || 0)}`));
   println();
+  if (!(await installFile(pid, title, f))) return 1;
 
-  const entry: Entry = { title, file_id: null, version: null, folders: [] };
+  // what it requires on CurseForge comes along, like in the CurseForge app (Questie → QuestieDB)
+  const needed = await missingDeps([{ pid, file: f, title }], new Set(Object.keys(loadState().addons)));
+  const extra: string[] = [];
+  for (const d of needed) {
+    if (!d.file) {
+      println(`${bullet("warn")} ${BOLD}Needs${RESET}(${d.title})`);
+      println(result(`${d.neededBy} requires it, but it has no WoW Forever build yet.`, YELLOW));
+      println();
+      continue;
+    }
+    println(`${bullet("ok")} ${BOLD}Needs${RESET}(${d.title}) ${GRAY}· ${d.neededBy} requires it${RESET}`);
+    println(result(`${d.title} ${prettyVersion(d.file)} · ${fmtSize(Number(d.file.filesize) || 0)}`));
+    println();
+    if (await installFile(d.pid, d.title, d.file, d.neededBy)) extra.push(d.title);
+  }
+  const n = Object.keys(loadState().addons).length;
+  const plus = extra.length ? ` (+ ${extra.join(", ")})` : "";
+  await finale(`DING! ${title}${plus} joined the party · wu now tracks ${n} addons`);
+  return 0;
+}
+
+/** Download, unpack and swap in one CurseForge file, then track it. */
+async function installFile(pid: string, title: string, f: CfFile, neededBy?: string): Promise<boolean> {
+  const entry: Entry = { title, file_id: null, version: null, folders: [], ...(neededBy ? { needed_by: neededBy } : {}) };
   const progress = { done: 0, total: Number(f.filesize) || 0, phase: "downloading" };
   const workdir = join(WOW_DIR, "Interface", ".wu");
-  spin = new Spinner();
+  const spin = new Spinner();
   live.start((fr) => [
     `${bullet("run", fr)} ${BOLD}Install${RESET}(${title})`,
     result(progress.phase),
@@ -69,19 +94,19 @@ export async function installProject(ref: string, label: string): Promise<number
   } catch (e: any) {
     live.stop();
     println(`${bullet("err")} ${BOLD}Install${RESET}(${title})\n${result(e?.message ?? String(e), RED)}`);
-    return 1;
+    return false;
   } finally {
     live.stop();
     removeIfEmpty(workdir);
   }
   Object.assign(entry, { file_id: f.id, file_name: f.name, version: prettyVersion(f), folders, updated_at: stamp() });
+  const state = loadState();
   state.addons[pid] = entry;
   saveState(state);
   println(`${bullet("ok")} ${BOLD}Install${RESET}(${title})`);
   println(result(`${folders.length} folder${folders.length !== 1 ? "s" : ""}: ${folders.join(", ")}`));
   println();
-  await finale(`DING! ${title} joined the party · wu now tracks ${Object.keys(state.addons).length} addons`);
-  return 0;
+  return true;
 }
 
 export function cmdList(): number {
@@ -94,7 +119,8 @@ export function cmdList(): number {
   addons.forEach(([pid, a], i) => {
     const ver = (a.version || "not installed").padEnd(vwidth);
     const when = a.updated_at ? `  ${GRAY}${a.updated_at}${RESET}` : "";
-    println(`${lead(i)}${a.title.padEnd(width)}  ${CLAUDE}${ver}${RESET}${when}  ${GRAY}#${pid}${RESET}`);
+    const forWho = a.needed_by ? `  ${GRAY}· for ${a.needed_by}${RESET}` : "";
+    println(`${lead(i)}${a.title.padEnd(width)}  ${CLAUDE}${ver}${RESET}${when}  ${GRAY}#${pid}${RESET}${forWho}`);
   });
   return 0;
 }

@@ -79,6 +79,11 @@ Keep paths portable: build them with `node:path` `join`, split with `/[\\/]/`, a
 - **CurseForge's own site blocks scripts.** File lists come from `api.cfwidget.com`, search from
   `api.curse.tools/v1/cf`, downloads from `edge.forgecdn.net`. WoW Forever is game version
   `1.60.1` (TOC interface `16001`, flavor suffix `_Camelot`).
+- **Two sources for file lists.** `fetchProject()` reads cfwidget, then tops it up from curse.tools
+  (`topUp()` in `src/curseforge.ts`): cfwidget's cache can miss a release for hours, and only
+  curse.tools has dependencies. Required ones (relationType 3) install automatically
+  (`src/deps.ts`, used by `wu add` and `wu`); entries installed that way carry `needed_by`.
+  Spoken is the odd one: its voice packs are separate projects it doesn't declare.
 - **Zip extraction is built in** (`src/install.ts`) with CRC checks; don't add an unzip dependency.
 
 ## Look and feel (keep it)
@@ -101,4 +106,4 @@ Keep paths portable: build them with `node:path` `join`, split with `/[\\/]/`, a
 | `src/engram.ts` | the banner and the final ✻ line |
 | `src/version.ts` | version, update check, badge, boot prompt, self-update |
 | `src/paths.ts` | config/state paths, lock, finding WoW Forever |
-| `src/curseforge.ts`, `src/install.ts`, `src/soulstone.ts` | data, downloads + unzip, backups |
+| `src/curseforge.ts`, `src/deps.ts`, `src/install.ts`, `src/soulstone.ts` | data, required dependencies, downloads + unzip, backups |

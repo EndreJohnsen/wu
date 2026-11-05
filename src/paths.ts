@@ -124,6 +124,7 @@ export type Entry = {
   version: string | null;
   folders: string[];
   updated_at?: string;
+  needed_by?: string; // installed because this addon requires it (its title)
 };
 export type State = { addons: Record<string, Entry> };
 

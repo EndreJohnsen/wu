@@ -96,8 +96,12 @@ is running, because WoW rewrites those files when you log out.
 ## How it works
 
 - Only **WoW Forever builds** (CurseForge game version `1.60.1`) are installed, newest stable first.
-- File lists come from [cfwidget](https://api.cfwidget.com) and search from
-  [curse.tools](https://api.curse.tools), a keyless proxy of the official CurseForge API.
+- Addons CurseForge marks as **required** come along by themselves, like in the CurseForge app:
+  adding Questie also installs QuestieDB and QuestieTrace, and `wu` adds any that are missing.
+  `wu list` shows what each one is for.
+- File lists come from [cfwidget](https://api.cfwidget.com), topped up with the newest files and
+  their dependencies from [curse.tools](https://api.curse.tools) (a keyless proxy of the official
+  CurseForge API, also used for search), since cfwidget can lag a release by hours.
   The CurseForge website itself blocks scripts.
 - Downloads come straight from CurseForge's CDN (`edge.forgecdn.net`), are size- and
   CRC-checked, and swapped in with a rollback, so a failed install puts the previous version back.

@@ -1,6 +1,7 @@
 // `wu` / `wu --check` / `wu --force`: check every tracked addon and install what's newer.
 import { join } from "node:path";
 import { type CfFile, type Project, fetchProject, pickFile, prettyVersion } from "../curseforge";
+import { missingDeps } from "../deps";
 import { banner, finale } from "../engram";
 import { install, removeIfEmpty } from "../install";
 import { type StoneAddon, castSoulstone, keepInStone, sealSoulstone } from "../soulstone";
@@ -116,13 +117,43 @@ export async function cmdUpdate(args: string[]): Promise<number> {
     }
   }
 
-  live.log(`${bullet(errors.length ? "warn" : "ok")} ${BOLD}Check${RESET}(${Object.keys(addons).length} addons)`);
-  live.log(result(`${todo.length} update${todo.length !== 1 ? "s" : ""} available · ${fresh.length} up to date`));
+  // what tracked addons require on CurseForge but nobody installed yet comes along (Questie → QuestieDB)
+  const nTracked = Object.keys(addons).length;
+  const roots = Object.entries(addons).flatMap(([pid, a]) => {
+    const r = results.get(pid);
+    return r?.ok && r.file ? [{ pid, file: r.file, title: a.title }] : [];
+  });
+  const depNotes: string[] = [];
+  let nNeeded = 0;
+  for (const n of await missingDeps(roots, new Set(Object.keys(addons)))) {
+    if (!n.file) {
+      depNotes.push(`${n.neededBy} requires ${n.title}, which has no WoW Forever build yet`);
+      continue;
+    }
+    const a: Entry = { title: n.title, file_id: null, version: null, folders: [], needed_by: n.neededBy };
+    if (!checkOnly) addons[n.pid] = a; // tracked from now on (a --check changes nothing)
+    todo.push({ pid: n.pid, a, f: n.file });
+    nNeeded++;
+  }
+
+  const nUpdates = todo.length - nNeeded;
+  live.log(`${bullet(errors.length ? "warn" : "ok")} ${BOLD}Check${RESET}(${nTracked} addons)`);
+  live.log(
+    result(
+      `${nUpdates} update${nUpdates !== 1 ? "s" : ""} available · ` +
+        (nNeeded ? `${nNeeded} required addon${nNeeded !== 1 ? "s" : ""} to add · ` : "") +
+        `${fresh.length} up to date`,
+    ),
+  );
   for (const [title, why] of errors) live.log(`     ${RED}✗ ${title}: ${why}${RESET}`);
+  for (const note of depNotes) live.log(`     ${YELLOW}! ${note}${RESET}`);
   live.log();
 
   if (checkOnly) {
-    for (const { a, f } of todo) live.log(`  ${CLAUDE}↑${RESET} ${a.title}  ${GRAY}${a.version || "new"} → ${RESET}${prettyVersion(f)}`);
+    for (const { a, f } of todo) {
+      const why = a.needed_by && !a.file_id ? `  ${GRAY}(${a.needed_by} requires it)${RESET}` : "";
+      live.log(`  ${CLAUDE}↑${RESET} ${a.title}  ${GRAY}${a.version || "new"} → ${RESET}${prettyVersion(f)}${why}`);
+    }
     if (todo.length) {
       live.log();
       live.log(rich("Run `wu` to install them."));
